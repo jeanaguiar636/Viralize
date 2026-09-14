@@ -14,7 +14,7 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
-  header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;z-index:10;}
+  header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;z-index:10;}
   header h1{font-size:20px;margin:0;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;}
   #userBox{font-size:13px;color:var(--muted);}
   main{max-width:520px;margin:0 auto;padding:12px;padding-bottom:90px;}
@@ -39,8 +39,8 @@
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;}
   nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
   nav.tabs button.ativo{color:var(--accent);}
-  #modalPost,#modalLogin,#modalCompartilhar{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
-  #modalPost .box,#modalLogin .box,#modalCompartilhar .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
+  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
+  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
   #modalLogin .box{border-radius:16px;margin:auto;}
   label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;}
   input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0f1115;color:var(--text);font-size:14px;}
@@ -60,6 +60,7 @@
 <body>
 
 <header>
+  <button onclick="abrirModalMenu()" style="background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:4px 8px;">☰</button>
   <h1>🔥 Viralize</h1>
   <div id="userBox">carregando...</div>
 </header>
@@ -75,10 +76,21 @@
       <button onclick="mudarSubAbaAdmin('aprovacoes')" id="subTabAprovacoes" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:var(--accent);color:#fff;">Aprovações</button>
       <button onclick="mudarSubAbaAdmin('posts')" id="subTabPosts" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Posts</button>
       <button onclick="mudarSubAbaAdmin('usuarios')" id="subTabUsuarios" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Usuários</button>
+      <button onclick="mudarSubAbaAdmin('paginas')" id="subTabPaginas" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Páginas</button>
     </div>
     <div id="adminAprovacoes"></div>
     <div id="adminPosts" class="oculto"></div>
     <div id="adminUsuarios" class="oculto"></div>
+    <div id="adminPaginas" class="oculto">
+      <div class="card">
+        <label>Título da página</label>
+        <input type="text" id="novaPaginaTitulo" placeholder="Ex: Termos de Uso, Sobre nós...">
+        <label>Conteúdo</label>
+        <textarea id="novaPaginaConteudo" style="min-height:120px;" placeholder="Escreva o conteúdo completo da página..."></textarea>
+        <button class="btn-principal" onclick="criarPaginaAdmin()">Criar página 📄</button>
+      </div>
+      <div id="adminListaPaginas"></div>
+    </div>
   </div>
 </main>
 
@@ -154,6 +166,38 @@
     <label>Seu link de afiliado</label>
     <input type="text" id="meuLinkAfiliado" placeholder="https://shopee.com.br/... (ou outro)">
     <button class="btn-principal" onclick="confirmarCompartilhamento()">Compartilhar 🚀</button>
+  </div>
+</div>
+
+<!-- Modal Menu -->
+<div id="modalMenu">
+  <div class="box">
+    <button class="fechar" onclick="fecharModalMenu()">✕</button>
+    <h3 style="margin-top:0;">Menu</h3>
+    <div id="listaPaginasMenu"></div>
+    <button onclick="abrirPagina('privacidade')" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🔒 Política de Privacidade</button>
+  </div>
+</div>
+
+<!-- Modal Página (conteúdo estático ou criado pelo admin) -->
+<div id="modalPagina">
+  <div class="box">
+    <button class="fechar" onclick="fecharModalPagina()">✕</button>
+    <h3 id="tituloPagina" style="margin-top:0;"></h3>
+    <div id="conteudoPagina" style="font-size:14px;line-height:1.6;color:var(--text);white-space:pre-wrap;"></div>
+  </div>
+</div>
+
+<!-- Modal Comentários (formato chat) -->
+<div id="modalComentarios" style="position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:35;">
+  <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);">
+    <h3 style="margin:0;flex:1;font-size:16px;">💬 Comentários</h3>
+    <button onclick="fecharModalComentarios()" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;">✕</button>
+  </div>
+  <div id="listaComentarios" style="flex:1;overflow-y:auto;padding:14px 16px;"></div>
+  <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--card);">
+    <input type="text" id="inputComentario" placeholder="Escreva um comentário..." style="flex:1;" onkeydown="if(event.key==='Enter') enviarComentario()">
+    <button onclick="enviarComentario()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:0 16px;font-size:14px;">Enviar</button>
   </div>
 </div>
 
@@ -253,6 +297,7 @@ auth.onAuthStateChanged(async (user) => {
       carregarAdminAprovacoes();
       carregarAdminPosts();
       carregarAdminUsuarios();
+      carregarAdminPaginas();
     }
   } else {
     document.getElementById('modalLogin').style.display = 'flex';
@@ -289,7 +334,8 @@ function mudarSubAbaAdmin(sub){
   document.getElementById('adminAprovacoes').classList.toggle('oculto', sub!=='aprovacoes');
   document.getElementById('adminPosts').classList.toggle('oculto', sub!=='posts');
   document.getElementById('adminUsuarios').classList.toggle('oculto', sub!=='usuarios');
-  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios' };
+  document.getElementById('adminPaginas').classList.toggle('oculto', sub!=='paginas');
+  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios', paginas: 'subTabPaginas' };
   Object.entries(btns).forEach(([key, id]) => {
     document.getElementById(id).style.background = key===sub ? 'var(--accent)' : '#1e222b';
     document.getElementById(id).style.color = key===sub ? '#fff' : 'var(--muted)';
@@ -448,7 +494,150 @@ function extrairIdTiktok(url){
   return m ? m[1] : '';
 }
 
-/* ---------------- FEED ---------------- */
+/* ---------------- MENU / PÁGINAS / PRIVACIDADE ---------------- */
+function abrirModalMenu(){
+  carregarPaginasNoMenu();
+  document.getElementById('modalMenu').style.display = 'flex';
+}
+function fecharModalMenu(){ document.getElementById('modalMenu').style.display = 'none'; }
+function fecharModalPagina(){ document.getElementById('modalPagina').style.display = 'none'; }
+
+const TEXTO_PRIVACIDADE = `Última atualização: 2026
+
+O Viralize é uma plataforma voltada para afiliados, criada para divulgação de produtos, vídeos e links de afiliado entre seus usuários.
+
+1. Dados coletados: nome, e-mail e conteúdo que você publica (posts, produtos, comentários).
+2. Uso dos dados: usados apenas para o funcionamento da plataforma (login, feed, catálogo, ranking).
+3. Compartilhamento: não vendemos nem compartilhamos seus dados com terceiros.
+4. Conteúdo publicado: você é responsável pelos links, produtos e vídeos que publica.
+5. Contato: em caso de dúvidas sobre seus dados, entre em contato com o administrador da plataforma.
+
+(Edite este texto no código, na constante TEXTO_PRIVACIDADE, pra personalizar com as regras reais do seu app.)`;
+
+function abrirPagina(tipo, id, titulo){
+  if(tipo === 'privacidade'){
+    document.getElementById('tituloPagina').textContent = '🔒 Política de Privacidade';
+    document.getElementById('conteudoPagina').textContent = TEXTO_PRIVACIDADE;
+    fecharModalMenu();
+    document.getElementById('modalPagina').style.display = 'flex';
+    return;
+  }
+  if(tipo === 'custom'){
+    db.collection('paginas').doc(id).get().then(doc => {
+      if(!doc.exists) return;
+      const p = doc.data();
+      document.getElementById('tituloPagina').textContent = '📄 ' + p.titulo;
+      document.getElementById('conteudoPagina').textContent = p.conteudo;
+      fecharModalMenu();
+      document.getElementById('modalPagina').style.display = 'flex';
+    });
+  }
+}
+
+function carregarPaginasNoMenu(){
+  db.collection('paginas').orderBy('criadoEm','desc').get().then(snap => {
+    const el = document.getElementById('listaPaginasMenu');
+    el.innerHTML = '';
+    snap.forEach(d => {
+      const p = d.data();
+      const btn = document.createElement('button');
+      btn.style.cssText = 'width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-bottom:8px;';
+      btn.textContent = '📄 ' + p.titulo;
+      btn.onclick = () => abrirPagina('custom', d.id);
+      el.appendChild(btn);
+    });
+  });
+}
+
+/* ---------------- CRIAÇÃO DE PÁGINAS (ADMIN) ---------------- */
+async function criarPaginaAdmin(){
+  const titulo = document.getElementById('novaPaginaTitulo').value.trim();
+  const conteudo = document.getElementById('novaPaginaConteudo').value.trim();
+  if(!titulo || !conteudo){ alert('Preencha título e conteúdo da página.'); return; }
+  await db.collection('paginas').add({
+    titulo, conteudo, criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  document.getElementById('novaPaginaTitulo').value = '';
+  document.getElementById('novaPaginaConteudo').value = '';
+  carregarAdminPaginas();
+  alert('Página criada! Já aparece no menu ☰ do app.');
+}
+
+function carregarAdminPaginas(){
+  db.collection('paginas').orderBy('criadoEm','desc').onSnapshot(snap => {
+    const el = document.getElementById('adminListaPaginas');
+    if(!el) return;
+    if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhuma página criada ainda.</div>'; return; }
+    el.innerHTML = '';
+    snap.forEach(d => {
+      const p = d.data();
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+        <div class="top"><div class="autor">📄 ${p.titulo}</div></div>
+        <div class="acoes"><button onclick="excluirPaginaAdmin('${d.id}')" style="color:#ff5c5c;">🗑️ Excluir</button></div>
+      `;
+      el.appendChild(div);
+    });
+  });
+}
+function excluirPaginaAdmin(id){
+  if(!confirm('Excluir essa página?')) return;
+  db.collection('paginas').doc(id).delete();
+}
+
+/* ---------------- COMENTÁRIOS (formato chat) ---------------- */
+let postComentarioAtual = null;
+let unsubscribeComentarios = null;
+
+function abrirModalComentarios(postId){
+  if(!usuarioAtual){ alert('Faça login primeiro.'); return; }
+  postComentarioAtual = postId;
+  document.getElementById('modalComentarios').style.display = 'flex';
+  document.getElementById('inputComentario').value = '';
+
+  if(unsubscribeComentarios) unsubscribeComentarios();
+  unsubscribeComentarios = db.collection('posts').doc(postId).collection('comentarios')
+    .orderBy('criadoEm','asc')
+    .onSnapshot(snap => {
+      const el = document.getElementById('listaComentarios');
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhum comentário ainda. Seja o primeiro!</div>'; return; }
+      el.innerHTML = '';
+      snap.forEach(d => {
+        const c = d.data();
+        const div = document.createElement('div');
+        div.style.cssText = 'margin-bottom:12px;';
+        div.innerHTML = `
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+            <div class="avatar" style="width:24px;height:24px;font-size:11px;">${(c.autorNome||'A')[0].toUpperCase()}</div>
+            <span style="font-size:12px;font-weight:600;">${c.autorNome||'Afiliado'}</span>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;margin-left:30px;">${escapeHtml(c.texto)}</div>
+        `;
+        el.appendChild(div);
+      });
+      el.scrollTop = el.scrollHeight;
+    });
+}
+
+function fecharModalComentarios(){
+  document.getElementById('modalComentarios').style.display = 'none';
+  if(unsubscribeComentarios){ unsubscribeComentarios(); unsubscribeComentarios = null; }
+  postComentarioAtual = null;
+}
+
+async function enviarComentario(){
+  const texto = document.getElementById('inputComentario').value.trim();
+  if(!texto || !postComentarioAtual || !usuarioAtual) return;
+  const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+  const nomeAutor = doc.exists ? doc.data().nome : 'Afiliado';
+
+  await db.collection('posts').doc(postComentarioAtual).collection('comentarios').add({
+    texto, autorId: usuarioAtual.uid, autorNome: nomeAutor,
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  document.getElementById('inputComentario').value = '';
+}
 function carregarFeed(){
   db.collection('posts').orderBy('criadoEm','desc').limit(50)
     .onSnapshot(snap => {
@@ -472,6 +661,7 @@ function carregarFeed(){
           ${p.linkCompra ? `<a class="link-generico" href="${p.linkCompra}" target="_blank" onclick="registrarClique('${d.id}')">🛒 Comprar (link de ${p.autorNome})</a>` : ''}
           <div class="acoes">
             <button onclick="compartilhar('${d.id}', this)">↗️ Compartilhar (<span>${p.compartilhamentos||0}</span>)</button>
+            <button onclick="abrirModalComentarios('${d.id}')">💬 Comentar</button>
             <span>👁️ ${p.visualizacoes||0}</span>
           </div>
         `;
