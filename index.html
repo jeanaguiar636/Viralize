@@ -39,8 +39,8 @@
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;}
   nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
   nav.tabs button.ativo{color:var(--accent);}
-  #modalPost,#modalLogin{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
-  #modalPost .box,#modalLogin .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
+  #modalPost,#modalLogin,#modalCompartilhar{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
+  #modalPost .box,#modalLogin .box,#modalCompartilhar .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
   #modalLogin .box{border-radius:16px;margin:auto;}
   label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;}
   input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0f1115;color:var(--text);font-size:14px;}
@@ -68,6 +68,18 @@
   <div id="feedView"></div>
   <div id="rankingView" class="oculto"><div id="ranking"></div></div>
   <div id="catalogoView" class="oculto"><div id="catalogoLista"></div></div>
+  <div id="adminView" class="oculto">
+    <h3 style="margin-top:16px;">⚙️ Painel do Administrador</h3>
+    <div id="adminStats" style="display:flex;gap:8px;margin-bottom:16px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <button onclick="mudarSubAbaAdmin('aprovacoes')" id="subTabAprovacoes" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:var(--accent);color:#fff;">Aprovações</button>
+      <button onclick="mudarSubAbaAdmin('posts')" id="subTabPosts" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Posts</button>
+      <button onclick="mudarSubAbaAdmin('usuarios')" id="subTabUsuarios" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Usuários</button>
+    </div>
+    <div id="adminAprovacoes"></div>
+    <div id="adminPosts" class="oculto"></div>
+    <div id="adminUsuarios" class="oculto"></div>
+  </div>
 </main>
 
 <button class="fab" onclick="abrirModalPost()">+</button>
@@ -76,6 +88,7 @@
   <button id="tabFeed" class="ativo" onclick="mudarAba('feed')">📱<br>Feed</button>
   <button id="tabRanking" onclick="mudarAba('ranking')">🏆<br>Ranking</button>
   <button id="tabCatalogo" onclick="mudarAba('catalogo')">🛍️<br>Catálogo</button>
+  <button id="tabAdmin" class="oculto" onclick="mudarAba('admin')">⚙️<br>Admin</button>
 </nav>
 
 <!-- Modal novo post -->
@@ -123,6 +136,27 @@
   </div>
 </div>
 
+<!-- Tela de espera / recusado -->
+<div id="telaEspera" style="position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;z-index:40;">
+  <div style="font-size:48px;margin-bottom:16px;" id="iconeEspera">⏳</div>
+  <h2 id="tituloEspera" style="margin:0 0 8px;">Sua conta está em análise</h2>
+  <p id="textoEspera" style="color:var(--muted);font-size:14px;max-width:320px;">O Viralize é uma comunidade fechada de afiliados. Assim que o administrador aprovar seu cadastro, você poderá usar a plataforma normalmente.</p>
+  <button onclick="auth.signOut()" style="margin-top:20px;background:none;border:1px solid var(--border);color:var(--muted);padding:10px 20px;border-radius:8px;">Sair</button>
+</div>
+
+<!-- Modal compartilhar com link próprio (produto ou vídeo) -->
+<div id="modalCompartilhar">
+  <div class="box">
+    <button class="fechar" onclick="fecharModalCompartilhar()">✕</button>
+    <h3 style="margin-top:0;" id="tituloModalCompartilhar">Compartilhar com meu link</h3>
+    <p style="font-size:13px;color:var(--muted);" id="textoModalCompartilhar">Cole seu link de afiliado. Ele vai aparecer no seu perfil — quem clicar, compra pelo seu link.</p>
+    <div id="previewProdutoCompartilhar" style="margin-bottom:10px;"></div>
+    <label>Seu link de afiliado</label>
+    <input type="text" id="meuLinkAfiliado" placeholder="https://shopee.com.br/... (ou outro)">
+    <button class="btn-principal" onclick="confirmarCompartilhamento()">Compartilhar 🚀</button>
+  </div>
+</div>
+
 <!-- Modal login -->
 <div id="modalLogin" style="display:flex;">
   <div class="box">
@@ -158,6 +192,7 @@ const db = firebase.firestore();
 
 let usuarioAtual = null;
 let tipoSelecionado = "texto";
+const ADMIN_EMAIL = "jeanaguiar636@gmail.com";
 
 /* ---------------- LOGIN ---------------- */
 function entrarOuCriar(){
@@ -171,8 +206,10 @@ function entrarOuCriar(){
       return auth.createUserWithEmailAndPassword(email, senha).then(cred => {
         return db.collection('usuarios').doc(cred.user.uid).set({
           nome: nome || 'Afiliado',
+          email: email,
           criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-          pontos: 0
+          pontos: 0,
+          status: email === ADMIN_EMAIL ? 'aprovado' : 'pendente'
         });
       });
     })
@@ -184,24 +221,79 @@ auth.onAuthStateChanged(async (user) => {
     usuarioAtual = user;
     document.getElementById('modalLogin').style.display = 'none';
     const doc = await db.collection('usuarios').doc(user.uid).get();
-    const nome = doc.exists ? doc.data().nome : 'Afiliado';
+    const dados = doc.exists ? doc.data() : {};
+    const nome = dados.nome || 'Afiliado';
+    // Contas antigas sem o campo "status" são tratadas como já aprovadas
+    const status = dados.status || 'aprovado';
+
+    if(user.email !== ADMIN_EMAIL && status !== 'aprovado'){
+      mostrarTelaEspera(status);
+      // fica escutando em tempo real: se o admin aprovar, a tela libera sozinha
+      db.collection('usuarios').doc(user.uid).onSnapshot(snap => {
+        const novoStatus = snap.data()?.status || 'aprovado';
+        if(novoStatus === 'aprovado'){
+          document.getElementById('telaEspera').style.display = 'none';
+          location.reload();
+        } else {
+          mostrarTelaEspera(novoStatus);
+        }
+      });
+      return;
+    }
+
+    document.getElementById('telaEspera').style.display = 'none';
     document.getElementById('userBox').textContent = '👤 ' + nome;
     carregarFeed();
     carregarRanking();
     carregarCatalogo();
+
+    if(user.email === ADMIN_EMAIL){
+      document.getElementById('tabAdmin').classList.remove('oculto');
+      carregarAdminStats();
+      carregarAdminAprovacoes();
+      carregarAdminPosts();
+      carregarAdminUsuarios();
+    }
   } else {
     document.getElementById('modalLogin').style.display = 'flex';
+    document.getElementById('telaEspera').style.display = 'none';
   }
 });
+
+function mostrarTelaEspera(status){
+  document.getElementById('telaEspera').style.display = 'flex';
+  if(status === 'recusado'){
+    document.getElementById('iconeEspera').textContent = '🚫';
+    document.getElementById('tituloEspera').textContent = 'Cadastro não aprovado';
+    document.getElementById('textoEspera').textContent = 'Seu cadastro não foi aprovado para o Viralize no momento.';
+  } else {
+    document.getElementById('iconeEspera').textContent = '⏳';
+    document.getElementById('tituloEspera').textContent = 'Sua conta está em análise';
+    document.getElementById('textoEspera').textContent = 'O Viralize é uma comunidade fechada de afiliados. Assim que o administrador aprovar seu cadastro, você poderá usar a plataforma normalmente.';
+  }
+}
 
 /* ---------------- ABAS ---------------- */
 function mudarAba(aba){
   document.getElementById('feedView').classList.toggle('oculto', aba!=='feed');
   document.getElementById('rankingView').classList.toggle('oculto', aba!=='ranking');
   document.getElementById('catalogoView').classList.toggle('oculto', aba!=='catalogo');
+  document.getElementById('adminView').classList.toggle('oculto', aba!=='admin');
   document.getElementById('tabFeed').classList.toggle('ativo', aba==='feed');
   document.getElementById('tabRanking').classList.toggle('ativo', aba==='ranking');
   document.getElementById('tabCatalogo').classList.toggle('ativo', aba==='catalogo');
+  document.getElementById('tabAdmin').classList.toggle('ativo', aba==='admin');
+}
+
+function mudarSubAbaAdmin(sub){
+  document.getElementById('adminAprovacoes').classList.toggle('oculto', sub!=='aprovacoes');
+  document.getElementById('adminPosts').classList.toggle('oculto', sub!=='posts');
+  document.getElementById('adminUsuarios').classList.toggle('oculto', sub!=='usuarios');
+  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios' };
+  Object.entries(btns).forEach(([key, id]) => {
+    document.getElementById(id).style.background = key===sub ? 'var(--accent)' : '#1e222b';
+    document.getElementById(id).style.color = key===sub ? '#fff' : 'var(--muted)';
+  });
 }
 
 /* ---------------- MODAL DE POST ---------------- */
@@ -373,9 +465,11 @@ function carregarFeed(){
             <div class="autor">${p.autorNome||'Afiliado'}</div>
             <div class="badge">${rotuloTipo(p.tipo)}</div>
           </div>
+          ${p.origemAutorNome ? `<div style="font-size:11px;color:var(--accent2);margin-bottom:6px;">🔁 Repost do produto de ${p.origemAutorNome}</div>` : ''}
           ${p.texto ? `<div class="conteudo">${escapeHtml(p.texto)}</div>` : ''}
           ${renderEmbed(p)}
           ${p.tipo==='produto' ? `<a class="link-generico" href="${p.produtoLink}" target="_blank" onclick="registrarClique('${d.id}')">🔗 Comprar / Ver oferta</a>` : ''}
+          ${p.linkCompra ? `<a class="link-generico" href="${p.linkCompra}" target="_blank" onclick="registrarClique('${d.id}')">🛒 Comprar (link de ${p.autorNome})</a>` : ''}
           <div class="acoes">
             <button onclick="compartilhar('${d.id}', this)">↗️ Compartilhar (<span>${p.compartilhamentos||0}</span>)</button>
             <span>👁️ ${p.visualizacoes||0}</span>
@@ -393,7 +487,114 @@ function escapeHtml(s){
 }
 
 /* ---------------- COMPARTILHAMENTO RASTREÁVEL ---------------- */
+let postPendenteCompartilhar = null;
+
 async function compartilhar(postId, btn){
+  if(!usuarioAtual){ alert('Faça login primeiro.'); return; }
+
+  const doc = await db.collection('posts').doc(postId).get();
+  const post = doc.data();
+
+  const ehVideoDeAfiliado = post.tipo === 'video_youtube' || post.tipo === 'video_tiktok' || post.tipo === 'video_facebook' || post.tipo === 'video_shopee';
+
+  // Produto ou vídeo de afiliado: abre modal pedindo o link de afiliado da pessoa
+  if(post.tipo === 'produto' || ehVideoDeAfiliado){
+    if(post.autorId === usuarioAtual.uid){
+      alert('Esse conteúdo já é seu! Use o compartilhamento normal pra divulgar.');
+      return compartilharLinkDireto(postId);
+    }
+    postPendenteCompartilhar = { postId, post };
+
+    if(post.tipo === 'produto'){
+      document.getElementById('tituloModalCompartilhar').textContent = 'Compartilhar produto com meu link';
+      document.getElementById('textoModalCompartilhar').textContent = 'Cole seu link de afiliado desse produto. Ele vai aparecer no seu feed e catálogo, com o seu link.';
+      document.getElementById('previewProdutoCompartilhar').innerHTML = `
+        <div class="produto-card">
+          <img src="${post.produtoImg || 'https://via.placeholder.com/70'}">
+          <div class="produto-info">
+            <div>${post.produtoNome}</div>
+            <div class="preco">R$ ${post.produtoPreco || '--'}</div>
+          </div>
+        </div>`;
+    } else {
+      document.getElementById('tituloModalCompartilhar').textContent = 'Compartilhar vídeo com meu link';
+      document.getElementById('textoModalCompartilhar').textContent = 'O vídeo continua sendo do autor original — mas o botão "Comprar" abaixo dele vai usar o SEU link de afiliado.';
+      document.getElementById('previewProdutoCompartilhar').innerHTML = renderEmbed(post);
+    }
+
+    document.getElementById('meuLinkAfiliado').value = '';
+    document.getElementById('modalCompartilhar').style.display = 'flex';
+    return;
+  }
+
+  // Outros tipos (texto, mídia própria): compartilhamento normal (link rastreável)
+  compartilharLinkDireto(postId);
+}
+
+async function confirmarCompartilhamento(){
+  const link = document.getElementById('meuLinkAfiliado').value.trim();
+  if(!link){ alert('Cole seu link de afiliado.'); return; }
+  if(!postPendenteCompartilhar) return;
+
+  const { postId, post } = postPendenteCompartilhar;
+  const docUsuario = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+  const nomeAutor = docUsuario.exists ? docUsuario.data().nome : 'Afiliado';
+
+  if(post.tipo === 'produto'){
+    await db.collection('posts').add({
+      tipo: 'produto',
+      texto: `🔁 Repost de ${post.autorNome || 'um afiliado'}`,
+      autorId: usuarioAtual.uid,
+      autorNome: nomeAutor,
+      produtoNome: post.produtoNome,
+      produtoPreco: post.produtoPreco,
+      produtoImg: post.produtoImg,
+      produtoLink: link,
+      origemPostId: postId,
+      origemAutorNome: post.autorNome || null,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      compartilhamentos: 0,
+      visualizacoes: 0
+    });
+
+    db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
+      nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: link,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } else {
+    // Repost de vídeo: mesmo vídeo (link do embed original), botão de compra com o link de quem compartilhou
+    await db.collection('posts').add({
+      tipo: post.tipo,
+      texto: `🔁 Repost de ${post.autorNome || 'um afiliado'}`,
+      autorId: usuarioAtual.uid,
+      autorNome: nomeAutor,
+      link: post.link,
+      linkCompra: link,
+      origemPostId: postId,
+      origemAutorNome: post.autorNome || null,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      compartilhamentos: 0,
+      visualizacoes: 0
+    });
+  }
+
+  await db.collection('posts').doc(postId).update({
+    compartilhamentos: firebase.firestore.FieldValue.increment(1)
+  });
+  await db.collection('usuarios').doc(usuarioAtual.uid).update({
+    pontos: firebase.firestore.FieldValue.increment(15)
+  }).catch(()=>{});
+
+  fecharModalCompartilhar();
+  alert('Compartilhado! Já apareceu no seu feed, com o seu link. 🚀');
+}
+
+function fecharModalCompartilhar(){
+  document.getElementById('modalCompartilhar').style.display = 'none';
+  postPendenteCompartilhar = null;
+}
+
+async function compartilharLinkDireto(postId){
   const base = window.location.origin + window.location.pathname.replace('index.html','');
   const link = `${base}p/${postId}?ref=${usuarioAtual ? usuarioAtual.uid : 'anon'}`;
 
@@ -451,6 +652,112 @@ function carregarCatalogo(){
             <div>${p.nome}</div>
             <div class="preco">R$ ${p.preco||'--'}</div>
           </div>
+        </div>`;
+      });
+    });
+}
+
+/* ---------------- PAINEL ADMIN ---------------- */
+function carregarAdminStats(){
+  Promise.all([
+    db.collection('posts').get(),
+    db.collection('usuarios').get()
+  ]).then(([postsSnap, usuariosSnap]) => {
+    let totalCompartilhamentos = 0;
+    postsSnap.forEach(d => totalCompartilhamentos += (d.data().compartilhamentos || 0));
+    const el = document.getElementById('adminStats');
+    el.innerHTML = `
+      <div class="card" style="flex:1;text-align:center;padding:10px;">
+        <div style="font-size:22px;font-weight:800;color:var(--accent2);">${postsSnap.size}</div>
+        <div style="font-size:11px;color:var(--muted);">Posts</div>
+      </div>
+      <div class="card" style="flex:1;text-align:center;padding:10px;">
+        <div style="font-size:22px;font-weight:800;color:var(--accent2);">${usuariosSnap.size}</div>
+        <div style="font-size:11px;color:var(--muted);">Usuários</div>
+      </div>
+      <div class="card" style="flex:1;text-align:center;padding:10px;">
+        <div style="font-size:22px;font-weight:800;color:var(--accent2);">${totalCompartilhamentos}</div>
+        <div style="font-size:11px;color:var(--muted);">Compartilhamentos</div>
+      </div>
+    `;
+  });
+}
+
+function carregarAdminPosts(){
+  db.collection('posts').orderBy('criadoEm','desc').limit(100)
+    .onSnapshot(snap => {
+      const el = document.getElementById('adminPosts');
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhum post ainda.</div>'; return; }
+      el.innerHTML = '';
+      snap.forEach(d => {
+        const p = d.data();
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <div class="top">
+            <div class="avatar">${(p.autorNome||'A')[0].toUpperCase()}</div>
+            <div class="autor">${p.autorNome||'Afiliado'}</div>
+            <div class="badge">${rotuloTipo(p.tipo)}</div>
+          </div>
+          ${p.texto ? `<div class="conteudo">${escapeHtml(p.texto)}</div>` : ''}
+          <div class="acoes">
+            <span>↗️ ${p.compartilhamentos||0}</span>
+            <span>👁️ ${p.visualizacoes||0}</span>
+            <button onclick="excluirPostAdmin('${d.id}')" style="color:#ff5c5c;margin-left:auto;">🗑️ Excluir</button>
+          </div>
+        `;
+        el.appendChild(div);
+      });
+    });
+}
+
+function excluirPostAdmin(postId){
+  if(!confirm('Excluir esta publicação permanentemente?')) return;
+  db.collection('posts').doc(postId).delete().then(() => carregarAdminStats());
+}
+
+function carregarAdminAprovacoes(){
+  db.collection('usuarios').where('status','==','pendente')
+    .onSnapshot(snap => {
+      const el = document.getElementById('adminAprovacoes');
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhum cadastro pendente no momento.</div>'; return; }
+      el.innerHTML = '';
+      snap.forEach(d => {
+        const u = d.data();
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <div class="top">
+            <div class="avatar">${(u.nome||'A')[0].toUpperCase()}</div>
+            <div class="autor">${u.nome||'Afiliado'}</div>
+          </div>
+          <div class="conteudo" style="color:var(--muted);">${u.email||''}</div>
+          <div class="acoes" style="gap:10px;">
+            <button onclick="responderAprovacao('${d.id}','aprovado')" style="background:#1e9e5e;color:#fff;padding:8px 14px;border-radius:8px;">✅ Aprovar</button>
+            <button onclick="responderAprovacao('${d.id}','recusado')" style="background:#3a1e1e;color:#ff8080;padding:8px 14px;border-radius:8px;">✕ Recusar</button>
+          </div>
+        `;
+        el.appendChild(div);
+      });
+    });
+}
+
+function responderAprovacao(userId, novoStatus){
+  db.collection('usuarios').doc(userId).update({ status: novoStatus })
+    .then(() => carregarAdminStats());
+}
+
+function carregarAdminUsuarios(){
+  db.collection('usuarios').orderBy('pontos','desc').limit(100)
+    .onSnapshot(snap => {
+      const el = document.getElementById('adminUsuarios');
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhum usuário ainda.</div>'; return; }
+      el.innerHTML = '';
+      snap.forEach(d => {
+        const u = d.data();
+        el.innerHTML += `<div class="rank-item">
+          <div class="avatar">${(u.nome||'A')[0].toUpperCase()}</div>
+          <div style="flex:1;">${u.nome||'Afiliado'}<br><small style="color:var(--muted)">${u.pontos||0} pontos</small></div>
         </div>`;
       });
     });
