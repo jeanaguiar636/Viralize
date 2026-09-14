@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Viralize — Rede Social de Afiliados</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --accent:#ff5c35; --accent2:#ffb347;
+    --text:#f2f2f2; --muted:#9aa0ab; --border:#262a33;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+  header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;z-index:10;}
+  header h1{font-size:20px;margin:0;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  #userBox{font-size:13px;color:var(--muted);}
+  main{max-width:520px;margin:0 auto;padding:12px;padding-bottom:90px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px;}
+  .card .top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:14px;}
+  .autor{font-weight:600;font-size:14px;}
+  .badge{font-size:10px;padding:2px 8px;border-radius:20px;background:#262a33;color:var(--muted);margin-left:auto;}
+  .conteudo{font-size:14px;line-height:1.4;margin-bottom:10px;white-space:pre-wrap;}
+  .embed-wrap{border-radius:10px;overflow:hidden;background:#000;margin-bottom:10px;}
+  .embed-wrap iframe{width:100%;aspect-ratio:9/16;border:0;display:block;}
+  .embed-wrap.wide iframe{aspect-ratio:16/9;}
+  .produto-card{display:flex;gap:10px;background:#1e222b;border-radius:10px;padding:10px;margin-bottom:10px;}
+  .produto-card img{width:70px;height:70px;border-radius:8px;object-fit:cover;background:#333;}
+  .produto-info{flex:1;}
+  .produto-info .preco{color:var(--accent2);font-weight:700;font-size:16px;}
+  .link-generico{display:block;background:#1e222b;border-radius:10px;padding:12px;color:var(--accent2);text-decoration:none;font-size:13px;margin-bottom:10px;word-break:break-all;}
+  .acoes{display:flex;gap:16px;font-size:13px;color:var(--muted);align-items:center;}
+  .acoes button{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;padding:6px 4px;}
+  .acoes button.ativo{color:var(--accent);}
+  .fab{position:fixed;bottom:20px;right:20px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;font-size:26px;color:#fff;box-shadow:0 6px 20px rgba(255,92,53,.4);cursor:pointer;z-index:20;}
+  nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;}
+  nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
+  nav.tabs button.ativo{color:var(--accent);}
+  #modalPost,#modalLogin{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
+  #modalPost .box,#modalLogin .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
+  #modalLogin .box{border-radius:16px;margin:auto;}
+  label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;}
+  input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0f1115;color:var(--text);font-size:14px;}
+  textarea{resize:vertical;min-height:60px;}
+  .tipos{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .tipos button{flex:none;padding:8px 12px;border-radius:20px;border:1px solid var(--border);background:#0f1115;color:var(--muted);font-size:12px;cursor:pointer;}
+  .tipos button.sel{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn-principal{width:100%;margin-top:16px;padding:12px;border-radius:10px;border:none;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;font-weight:700;font-size:15px;cursor:pointer;}
+  .fechar{float:right;color:var(--muted);background:none;border:none;font-size:18px;cursor:pointer;}
+  #ranking{padding:12px 0;}
+  .rank-item{display:flex;align-items:center;gap:10px;padding:10px;background:var(--card);border-radius:10px;margin-bottom:8px;border:1px solid var(--border);}
+  .rank-pos{font-weight:800;color:var(--accent2);width:22px;}
+  .oculto{display:none!important;}
+  .vazio{text-align:center;color:var(--muted);padding:40px 20px;font-size:14px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔥 Viralize</h1>
+  <div id="userBox">carregando...</div>
+</header>
+
+<main>
+  <div id="feedView"></div>
+  <div id="rankingView" class="oculto"><div id="ranking"></div></div>
+  <div id="catalogoView" class="oculto"><div id="catalogoLista"></div></div>
+</main>
+
+<button class="fab" onclick="abrirModalPost()">+</button>
+
+<nav class="tabs">
+  <button id="tabFeed" class="ativo" onclick="mudarAba('feed')">📱<br>Feed</button>
+  <button id="tabRanking" onclick="mudarAba('ranking')">🏆<br>Ranking</button>
+  <button id="tabCatalogo" onclick="mudarAba('catalogo')">🛍️<br>Catálogo</button>
+</nav>
+
+<!-- Modal novo post -->
+<div id="modalPost">
+  <div class="box">
+    <button class="fechar" onclick="fecharModalPost()">✕</button>
+    <h3 style="margin-top:0;">Criar publicação</h3>
+    <label>Tipo de conteúdo</label>
+    <div class="tipos" id="tiposBtns">
+      <button data-t="texto" class="sel">📝 Texto</button>
+      <button data-t="video_youtube">▶️ YouTube</button>
+      <button data-t="video_tiktok">🎵 TikTok</button>
+      <button data-t="video_facebook">📘 Facebook</button>
+      <button data-t="video_shopee">🛒 Shopee (vídeo)</button>
+      <button data-t="produto">🏷️ Produto/Afiliado</button>
+      <button data-t="midia_propria">🎬 Vídeo/Áudio/Foto próprio</button>
+    </div>
+
+    <div id="campoLink" class="oculto">
+      <label>Link do vídeo</label>
+      <input type="text" id="inputLink" placeholder="Cole aqui o link">
+    </div>
+
+    <div id="campoMidia" class="oculto">
+      <label>Selecione o arquivo (vídeo, áudio ou imagem)</label>
+      <input type="file" id="inputArquivo" accept="video/*,audio/*,image/*">
+      <div id="statusUpload" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
+    </div>
+
+    <div id="campoProduto" class="oculto">
+      <label>Nome do produto</label>
+      <input type="text" id="prodNome" placeholder="Ex: Fone Bluetooth X10">
+      <label>Preço (R$)</label>
+      <input type="text" id="prodPreco" placeholder="Ex: 79,90">
+      <label>Imagem do produto (URL)</label>
+      <input type="text" id="prodImg" placeholder="https://...">
+      <label>Link de afiliado</label>
+      <input type="text" id="prodLink" placeholder="https://shopee.com.br/... ou outro">
+    </div>
+
+    <label>Descrição / legenda</label>
+    <textarea id="inputTexto" placeholder="Escreva algo sobre essa publicação..."></textarea>
+
+    <button class="btn-principal" onclick="publicar()">Publicar 🚀</button>
+  </div>
+</div>
+
+<!-- Modal login -->
+<div id="modalLogin" style="display:flex;">
+  <div class="box">
+    <h3 style="margin-top:0;">Entrar no Viralize</h3>
+    <label>Nome de exibição</label>
+    <input type="text" id="loginNome" placeholder="Como quer ser chamado?">
+    <label>E-mail</label>
+    <input type="email" id="loginEmail" placeholder="seu@email.com">
+    <label>Senha</label>
+    <input type="password" id="loginSenha" placeholder="mínimo 6 caracteres">
+    <button class="btn-principal" onclick="entrarOuCriar()">Entrar / Criar conta</button>
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">
+      Ao continuar, sua conta é criada automaticamente se ainda não existir.
+    </p>
+  </div>
+</div>
+
+<script>
+/* ======================= CONFIGURAÇÃO FIREBASE =======================
+   Troque pelos dados do SEU projeto Firebase (Configurações do projeto > Config do app)
+======================================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyCbfAv1pw1mO0OiajQZ8_LZUIZ_u2zZIXo",
+  authDomain: "viralize-ef54c.firebaseapp.com",
+  projectId: "viralize-ef54c",
+  storageBucket: "viralize-ef54c.firebasestorage.app",
+  messagingSenderId: "52430116190",
+  appId: "1:52430116190:web:081c1a40c94e21cd79ebcf"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let usuarioAtual = null;
+let tipoSelecionado = "texto";
+
+/* ---------------- LOGIN ---------------- */
+function entrarOuCriar(){
+  const nome = document.getElementById('loginNome').value.trim();
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  if(!email || senha.length < 6){ alert('Preencha e-mail e senha (mín. 6 caracteres).'); return; }
+
+  auth.signInWithEmailAndPassword(email, senha)
+    .catch(() => {
+      return auth.createUserWithEmailAndPassword(email, senha).then(cred => {
+        return db.collection('usuarios').doc(cred.user.uid).set({
+          nome: nome || 'Afiliado',
+          criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+          pontos: 0
+        });
+      });
+    })
+    .catch(err => alert('Erro: ' + err.message));
+}
+
+auth.onAuthStateChanged(async (user) => {
+  if(user){
+    usuarioAtual = user;
+    document.getElementById('modalLogin').style.display = 'none';
+    const doc = await db.collection('usuarios').doc(user.uid).get();
+    const nome = doc.exists ? doc.data().nome : 'Afiliado';
+    document.getElementById('userBox').textContent = '👤 ' + nome;
+    carregarFeed();
+    carregarRanking();
+    carregarCatalogo();
+  } else {
+    document.getElementById('modalLogin').style.display = 'flex';
+  }
+});
+
+/* ---------------- ABAS ---------------- */
+function mudarAba(aba){
+  document.getElementById('feedView').classList.toggle('oculto', aba!=='feed');
+  document.getElementById('rankingView').classList.toggle('oculto', aba!=='ranking');
+  document.getElementById('catalogoView').classList.toggle('oculto', aba!=='catalogo');
+  document.getElementById('tabFeed').classList.toggle('ativo', aba==='feed');
+  document.getElementById('tabRanking').classList.toggle('ativo', aba==='ranking');
+  document.getElementById('tabCatalogo').classList.toggle('ativo', aba==='catalogo');
+}
+
+/* ---------------- MODAL DE POST ---------------- */
+function abrirModalPost(){ document.getElementById('modalPost').style.display='flex'; }
+function fecharModalPost(){ document.getElementById('modalPost').style.display='none'; }
+
+document.getElementById('tiposBtns').addEventListener('click', (e) => {
+  if(e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#tiposBtns button').forEach(b=>b.classList.remove('sel'));
+  e.target.classList.add('sel');
+  tipoSelecionado = e.target.dataset.t;
+  const ehVideo = tipoSelecionado.startsWith('video_');
+  const ehProduto = tipoSelecionado === 'produto';
+  const ehMidia = tipoSelecionado === 'midia_propria';
+  document.getElementById('campoLink').classList.toggle('oculto', !ehVideo);
+  document.getElementById('campoProduto').classList.toggle('oculto', !ehProduto);
+  document.getElementById('campoMidia').classList.toggle('oculto', !ehMidia);
+});
+
+/* ---------------- EXTRAIR IDs DE VÍDEO ---------------- */
+function idYoutube(url){
+  const m = url.match(/(?:youtu\.be\/|v=|shorts\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+function urlEmbedTiktok(url){
+  // TikTok precisa do oEmbed; aqui geramos um embed simplificado via blockquote (renderiza com o script deles)
+  return url;
+}
+
+/* ---------------- UPLOAD PRO CLOUDFLARE R2 ---------------- */
+async function subirArquivoR2(arquivo){
+  const statusEl = document.getElementById('statusUpload');
+  statusEl.textContent = 'Preparando upload...';
+
+  const resp = await fetch('/api/r2-upload-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nomeArquivo: arquivo.name, tipoArquivo: arquivo.type })
+  });
+  if(!resp.ok){ throw new Error('Não foi possível preparar o upload.'); }
+  const { urlUpload, urlPublica } = await resp.json();
+
+  statusEl.textContent = 'Enviando arquivo...';
+  const uploadResp = await fetch(urlUpload, {
+    method: 'PUT',
+    headers: { 'Content-Type': arquivo.type },
+    body: arquivo
+  });
+  if(!uploadResp.ok){ throw new Error('Falha ao enviar o arquivo pro R2.'); }
+
+  statusEl.textContent = 'Upload concluído ✅';
+  return urlPublica;
+}
+
+/* ---------------- PUBLICAR ---------------- */
+async function publicar(){
+  if(!usuarioAtual){ alert('Faça login primeiro.'); return; }
+  const texto = document.getElementById('inputTexto').value.trim();
+  const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+  const nomeAutor = doc.exists ? doc.data().nome : 'Afiliado';
+
+  const post = {
+    tipo: tipoSelecionado,
+    texto: texto,
+    autorId: usuarioAtual.uid,
+    autorNome: nomeAutor,
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    compartilhamentos: 0,
+    visualizacoes: 0
+  };
+
+  if(tipoSelecionado.startsWith('video_')){
+    const link = document.getElementById('inputLink').value.trim();
+    if(!link){ alert('Cole o link do vídeo.'); return; }
+    post.link = link;
+  }
+
+  if(tipoSelecionado === 'midia_propria'){
+    const arquivo = document.getElementById('inputArquivo').files[0];
+    if(!arquivo){ alert('Selecione um arquivo.'); return; }
+    try{
+      const urlPublica = await subirArquivoR2(arquivo);
+      post.midiaUrl = urlPublica;
+      post.midiaTipo = arquivo.type;
+    }catch(err){
+      alert('Erro no upload: ' + err.message);
+      return;
+    }
+  }
+
+  if(tipoSelecionado === 'produto'){
+    post.produtoNome = document.getElementById('prodNome').value.trim();
+    post.produtoPreco = document.getElementById('prodPreco').value.trim();
+    post.produtoImg = document.getElementById('prodImg').value.trim();
+    post.produtoLink = document.getElementById('prodLink').value.trim();
+    if(!post.produtoNome || !post.produtoLink){ alert('Preencha nome e link de afiliado do produto.'); return; }
+    // também salva no catálogo pessoal do usuário
+    db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
+      nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: post.produtoLink,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
+  await db.collection('posts').add(post);
+  fecharModalPost();
+  document.getElementById('inputTexto').value = '';
+  document.getElementById('inputLink').value = '';
+  document.getElementById('inputArquivo').value = '';
+  document.getElementById('statusUpload').textContent = '';
+}
+
+/* ---------------- RENDERIZAR EMBED ---------------- */
+function renderEmbed(post){
+  if(post.tipo === 'video_youtube'){
+    const id = idYoutube(post.link);
+    if(!id) return `<a class="link-generico" href="${post.link}" target="_blank">▶️ Ver vídeo do YouTube</a>`;
+    return `<div class="embed-wrap wide"><iframe src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe></div>`;
+  }
+  if(post.tipo === 'video_tiktok'){
+    return `<div class="embed-wrap"><iframe src="https://www.tiktok.com/embed/v2/${extrairIdTiktok(post.link)}" allowfullscreen></iframe></div>`;
+  }
+  if(post.tipo === 'video_facebook'){
+    const src = 'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(post.link);
+    return `<div class="embed-wrap wide"><iframe src="${src}" allowfullscreen></iframe></div>`;
+  }
+  if(post.tipo === 'video_shopee'){
+    // Shopee não oferece embed oficial: mostramos card com link direto (abre em nova aba/webview)
+    return `<a class="link-generico" href="${post.link}" target="_blank">🛒 Assistir vídeo na Shopee →</a>`;
+  }
+  if(post.tipo === 'midia_propria'){
+    if(post.midiaTipo && post.midiaTipo.startsWith('video/')){
+      return `<div class="embed-wrap"><video src="${post.midiaUrl}" controls playsinline style="width:100%;display:block;"></video></div>`;
+    }
+    if(post.midiaTipo && post.midiaTipo.startsWith('audio/')){
+      return `<audio src="${post.midiaUrl}" controls style="width:100%;"></audio>`;
+    }
+    return `<img src="${post.midiaUrl}" style="width:100%;border-radius:10px;display:block;">`;
+  }
+  if(post.tipo === 'produto'){
+    return `<div class="produto-card">
+      <img src="${post.produtoImg || 'https://via.placeholder.com/70'}">
+      <div class="produto-info">
+        <div>${post.produtoNome}</div>
+        <div class="preco">R$ ${post.produtoPreco || '--'}</div>
+      </div>
+    </div>`;
+  }
+  return '';
+}
+function extrairIdTiktok(url){
+  const m = url.match(/video\/(\d+)/);
+  return m ? m[1] : '';
+}
+
+/* ---------------- FEED ---------------- */
+function carregarFeed(){
+  db.collection('posts').orderBy('criadoEm','desc').limit(50)
+    .onSnapshot(snap => {
+      const el = document.getElementById('feedView');
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhuma publicação ainda.<br>Seja o primeiro a viralizar! 🚀</div>'; return; }
+      el.innerHTML = '';
+      snap.forEach(d => {
+        const p = d.data();
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="top">
+            <div class="avatar">${(p.autorNome||'A')[0].toUpperCase()}</div>
+            <div class="autor">${p.autorNome||'Afiliado'}</div>
+            <div class="badge">${rotuloTipo(p.tipo)}</div>
+          </div>
+          ${p.texto ? `<div class="conteudo">${escapeHtml(p.texto)}</div>` : ''}
+          ${renderEmbed(p)}
+          ${p.tipo==='produto' ? `<a class="link-generico" href="${p.produtoLink}" target="_blank" onclick="registrarClique('${d.id}')">🔗 Comprar / Ver oferta</a>` : ''}
+          <div class="acoes">
+            <button onclick="compartilhar('${d.id}', this)">↗️ Compartilhar (<span>${p.compartilhamentos||0}</span>)</button>
+            <span>👁️ ${p.visualizacoes||0}</span>
+          </div>
+        `;
+        el.appendChild(card);
+      });
+    });
+}
+function rotuloTipo(t){
+  return {video_youtube:'YouTube', video_tiktok:'TikTok', video_facebook:'Facebook', video_shopee:'Shopee', produto:'Produto', texto:'Post', midia_propria:'Mídia própria'}[t] || t;
+}
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ---------------- COMPARTILHAMENTO RASTREÁVEL ---------------- */
+async function compartilhar(postId, btn){
+  const base = window.location.origin + window.location.pathname.replace('index.html','');
+  const link = `${base}p/${postId}?ref=${usuarioAtual ? usuarioAtual.uid : 'anon'}`;
+
+  await db.collection('posts').doc(postId).update({
+    compartilhamentos: firebase.firestore.FieldValue.increment(1)
+  });
+  if(usuarioAtual){
+    await db.collection('usuarios').doc(usuarioAtual.uid).update({
+      pontos: firebase.firestore.FieldValue.increment(10)
+    }).catch(()=>{});
+  }
+
+  if(navigator.share){
+    navigator.share({ title: 'Olha isso no Viralize!', url: link }).catch(()=>{});
+  } else {
+    navigator.clipboard.writeText(link);
+    alert('Link copiado! Cole onde quiser compartilhar:\n' + link);
+  }
+}
+function registrarClique(postId){
+  db.collection('posts').doc(postId).update({
+    visualizacoes: firebase.firestore.FieldValue.increment(1)
+  }).catch(()=>{});
+}
+
+/* ---------------- RANKING ---------------- */
+function carregarRanking(){
+  db.collection('usuarios').orderBy('pontos','desc').limit(20)
+    .onSnapshot(snap => {
+      const el = document.getElementById('ranking');
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Ranking vazio ainda.</div>'; return; }
+      el.innerHTML = '<h3>🏆 Top Divulgadores</h3>';
+      let pos = 1;
+      snap.forEach(d => {
+        const u = d.data();
+        el.innerHTML += `<div class="rank-item"><div class="rank-pos">#${pos}</div><div class="avatar">${(u.nome||'A')[0].toUpperCase()}</div><div>${u.nome||'Afiliado'}<br><small style="color:var(--muted)">${u.pontos||0} pontos</small></div></div>`;
+        pos++;
+      });
+    });
+}
+
+/* ---------------- CATÁLOGO ---------------- */
+function carregarCatalogo(){
+  if(!usuarioAtual) return;
+  db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').orderBy('criadoEm','desc')
+    .onSnapshot(snap => {
+      const el = document.getElementById('catalogoLista');
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Seu catálogo está vazio.<br>Crie um post do tipo Produto para adicionar itens aqui.</div>'; return; }
+      el.innerHTML = '<h3>🛍️ Meu Catálogo</h3>';
+      snap.forEach(d => {
+        const p = d.data();
+        el.innerHTML += `<div class="produto-card">
+          <img src="${p.img || 'https://via.placeholder.com/70'}">
+          <div class="produto-info">
+            <div>${p.nome}</div>
+            <div class="preco">R$ ${p.preco||'--'}</div>
+          </div>
+        </div>`;
+      });
+    });
+}
+</script>
+</body>
+</html>
