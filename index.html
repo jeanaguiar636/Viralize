@@ -176,6 +176,7 @@
     <h3 style="margin-top:0;">Menu</h3>
     <div id="listaPaginasMenu"></div>
     <button onclick="abrirPagina('privacidade')" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🔒 Política de Privacidade</button>
+    <button onclick="sairDaConta()" style="width:100%;text-align:left;background:#2a1616;border:1px solid #4a2020;color:#ff8080;padding:14px;border-radius:10px;margin-top:8px;">🚪 Sair</button>
   </div>
 </div>
 
@@ -500,6 +501,10 @@ function abrirModalMenu(){
   document.getElementById('modalMenu').style.display = 'flex';
 }
 function fecharModalMenu(){ document.getElementById('modalMenu').style.display = 'none'; }
+function sairDaConta(){
+  fecharModalMenu();
+  auth.signOut();
+}
 function fecharModalPagina(){ document.getElementById('modalPagina').style.display = 'none'; }
 
 const TEXTO_PRIVACIDADE = `Última atualização: 2026
