@@ -77,6 +77,7 @@
       <button onclick="mudarSubAbaAdmin('posts')" id="subTabPosts" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Posts</button>
       <button onclick="mudarSubAbaAdmin('usuarios')" id="subTabUsuarios" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Usuários</button>
       <button onclick="mudarSubAbaAdmin('paginas')" id="subTabPaginas" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Páginas</button>
+      <button onclick="mudarSubAbaAdmin('cores')" id="subTabCores" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Cores</button>
     </div>
     <div id="adminAprovacoes"></div>
     <div id="adminPosts" class="oculto"></div>
@@ -90,6 +91,17 @@
         <button class="btn-principal" onclick="criarPaginaAdmin()">Criar página 📄</button>
       </div>
       <div id="adminListaPaginas"></div>
+    </div>
+    <div id="adminCores" class="oculto">
+      <div class="card">
+        <h3 style="margin-top:0;">🎨 Paleta de cores do app</h3>
+        <p style="font-size:12px;color:var(--muted);">Mude e veja o resultado na hora. Clique em "Salvar" pra valer pra todo mundo.</p>
+        <div id="camposCores"></div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button class="btn-principal" style="margin-top:0;" onclick="salvarCoresAdmin()">💾 Salvar cores</button>
+          <button onclick="restaurarCoresPadrao()" style="background:#1e222b;color:var(--muted);border:1px solid var(--border);border-radius:10px;padding:0 16px;">Restaurar padrão</button>
+        </div>
+      </div>
     </div>
   </div>
 </main>
@@ -238,6 +250,7 @@ const db = firebase.firestore();
 let usuarioAtual = null;
 let tipoSelecionado = "texto";
 const ADMIN_EMAIL = "jeanaguiar636@gmail.com";
+carregarCoresSalvas();
 
 /* ---------------- LOGIN ---------------- */
 function entrarOuCriar(){
@@ -336,11 +349,13 @@ function mudarSubAbaAdmin(sub){
   document.getElementById('adminPosts').classList.toggle('oculto', sub!=='posts');
   document.getElementById('adminUsuarios').classList.toggle('oculto', sub!=='usuarios');
   document.getElementById('adminPaginas').classList.toggle('oculto', sub!=='paginas');
-  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios', paginas: 'subTabPaginas' };
+  document.getElementById('adminCores').classList.toggle('oculto', sub!=='cores');
+  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios', paginas: 'subTabPaginas', cores: 'subTabCores' };
   Object.entries(btns).forEach(([key, id]) => {
     document.getElementById(id).style.background = key===sub ? 'var(--accent)' : '#1e222b';
     document.getElementById(id).style.color = key===sub ? '#fff' : 'var(--muted)';
   });
+  if(sub === 'cores') montarCamposCores();
 }
 
 /* ---------------- MODAL DE POST ---------------- */
@@ -961,6 +976,60 @@ function carregarAdminAprovacoes(){
 function responderAprovacao(userId, novoStatus){
   db.collection('usuarios').doc(userId).update({ status: novoStatus })
     .then(() => carregarAdminStats());
+}
+
+/* ---------------- PALETA DE CORES (ADMIN) ---------------- */
+const CORES_PADRAO = {
+  '--bg': '#0f1115', '--card': '#171a21', '--accent': '#ff5c35',
+  '--accent2': '#ffb347', '--text': '#f2f2f2', '--muted': '#9aa0ab', '--border': '#262a33'
+};
+const NOMES_CORES = {
+  '--bg': 'Fundo geral', '--card': 'Fundo dos cartões', '--accent': 'Cor principal (destaque)',
+  '--accent2': 'Cor secundária (destaque 2)', '--text': 'Texto', '--muted': 'Texto apagado', '--border': 'Bordas'
+};
+
+function aplicarCores(cores){
+  Object.entries(cores).forEach(([variavel, valor]) => {
+    document.documentElement.style.setProperty(variavel, valor);
+  });
+}
+
+async function carregarCoresSalvas(){
+  try{
+    const doc = await db.collection('config').doc('aparencia').get();
+    if(doc.exists) aplicarCores(doc.data());
+  }catch(err){ /* sem configuração salva ainda, usa o padrão do CSS */ }
+}
+
+function montarCamposCores(){
+  const el = document.getElementById('camposCores');
+  el.innerHTML = '';
+  Object.keys(CORES_PADRAO).forEach(variavel => {
+    const valorAtual = getComputedStyle(document.documentElement).getPropertyValue(variavel).trim() || CORES_PADRAO[variavel];
+    const linha = document.createElement('div');
+    linha.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:10px;';
+    linha.innerHTML = `
+      <input type="color" data-var="${variavel}" value="${valorAtual}" style="width:44px;height:44px;border:none;border-radius:8px;padding:0;background:none;">
+      <div style="flex:1;font-size:13px;">${NOMES_CORES[variavel]}</div>
+    `;
+    el.appendChild(linha);
+    linha.querySelector('input').addEventListener('input', (e) => {
+      document.documentElement.style.setProperty(variavel, e.target.value);
+    });
+  });
+}
+
+async function salvarCoresAdmin(){
+  const inputs = document.querySelectorAll('#camposCores input[type=color]');
+  const cores = {};
+  inputs.forEach(i => cores[i.dataset.var] = i.value);
+  await db.collection('config').doc('aparencia').set(cores);
+  alert('Cores salvas! Já valem pra todo mundo que abrir o app agora. 🎨');
+}
+
+function restaurarCoresPadrao(){
+  aplicarCores(CORES_PADRAO);
+  montarCamposCores();
 }
 
 function carregarAdminUsuarios(){
