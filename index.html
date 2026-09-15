@@ -341,10 +341,15 @@ auth.onAuthStateChanged(async (user) => {
       carregarAdminPosts();
       carregarAdminUsuarios();
       carregarAdminPaginas();
+    } else {
+      document.getElementById('tabAdmin').classList.add('oculto');
+      // se a pessoa estava vendo a aba admin e trocou de conta, volta pro feed
+      mudarAba('feed');
     }
   } else {
     document.getElementById('modalLogin').style.display = 'flex';
     document.getElementById('telaEspera').style.display = 'none';
+    document.getElementById('tabAdmin').classList.add('oculto');
   }
 });
 
