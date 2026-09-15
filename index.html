@@ -80,6 +80,7 @@
       <button onclick="mudarSubAbaAdmin('cores')" id="subTabCores" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Cores</button>
       <button onclick="mudarSubAbaAdmin('catalogos')" id="subTabCatalogos" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Catálogos</button>
       <button onclick="mudarSubAbaAdmin('adsviral')" id="subTabAdsviral" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">AdsViral</button>
+      <button onclick="mudarSubAbaAdmin('chat')" id="subTabChat" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Chat</button>
     </div>
     <div id="adminAprovacoes"></div>
     <div id="adminPosts" class="oculto"></div>
@@ -120,6 +121,7 @@
       <h3>📋 Solicitações pendentes</h3>
       <div id="listaAdsviralPendentes"></div>
     </div>
+    <div id="adminChat" class="oculto"><div id="listaConversasAdmin"></div></div>
   </div>
 </main>
 
@@ -198,6 +200,19 @@
   </div>
 </div>
 
+<!-- Modal Chat de Suporte (ao vivo) -->
+<div id="modalChatSuporte" style="position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:36;">
+  <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);">
+    <h3 style="margin:0;flex:1;font-size:16px;" id="tituloChatSuporte">💬 Chat com o suporte</h3>
+    <button onclick="fecharChatSuporte()" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;">✕</button>
+  </div>
+  <div id="listaChatSuporte" style="flex:1;overflow-y:auto;padding:14px 16px;"></div>
+  <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--card);">
+    <input type="text" id="inputChatSuporte" placeholder="Escreva sua mensagem..." style="flex:1;" onkeydown="if(event.key==='Enter') enviarMensagemChatSuporte()">
+    <button onclick="enviarMensagemChatSuporte()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:0 16px;font-size:14px;">Enviar</button>
+  </div>
+</div>
+
 <!-- Modal AdsViral (impulsionar post com Pix) -->
 <div id="modalAdsviral">
   <div class="box">
@@ -216,6 +231,7 @@
     <button class="fechar" onclick="fecharModalMenu()">✕</button>
     <h3 style="margin-top:0;">Menu</h3>
     <div id="listaPaginasMenu"></div>
+    <button onclick="fecharModalMenu();abrirChatSuporte()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">💬 Falar com o suporte</button>
     <button onclick="abrirPagina('privacidade')" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🔒 Política de Privacidade</button>
     <button onclick="sairDaConta()" style="width:100%;text-align:left;background:#2a1616;border:1px solid #4a2020;color:#ff8080;padding:14px;border-radius:10px;margin-top:8px;">🚪 Sair</button>
   </div>
@@ -386,7 +402,8 @@ function mudarSubAbaAdmin(sub){
   document.getElementById('adminCores').classList.toggle('oculto', sub!=='cores');
   document.getElementById('adminCatalogos').classList.toggle('oculto', sub!=='catalogos');
   document.getElementById('adminAdsviral').classList.toggle('oculto', sub!=='adsviral');
-  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios', paginas: 'subTabPaginas', cores: 'subTabCores', catalogos: 'subTabCatalogos', adsviral: 'subTabAdsviral' };
+  document.getElementById('adminChat').classList.toggle('oculto', sub!=='chat');
+  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios', paginas: 'subTabPaginas', cores: 'subTabCores', catalogos: 'subTabCatalogos', adsviral: 'subTabAdsviral', chat: 'subTabChat' };
   Object.entries(btns).forEach(([key, id]) => {
     document.getElementById(id).style.background = key===sub ? 'var(--accent)' : '#1e222b';
     document.getElementById(id).style.color = key===sub ? '#fff' : 'var(--muted)';
@@ -394,6 +411,7 @@ function mudarSubAbaAdmin(sub){
   if(sub === 'cores') montarCamposCores();
   if(sub === 'catalogos') carregarCatalogosAdmin();
   if(sub === 'adsviral') { carregarConfigAdsviralAdmin(); carregarAdsviralPendentes(); }
+  if(sub === 'chat') carregarConversasAdmin();
 }
 
 /* ---------------- MODAL DE POST ---------------- */
@@ -1071,7 +1089,98 @@ function restaurarCoresPadrao(){
   montarCamposCores();
 }
 
-/* ---------------- CATÁLOGOS (ADMIN, excluir de qualquer afiliado) ---------------- */
+/* ---------------- CHAT DE SUPORTE AO VIVO ---------------- */
+let unsubscribeChatSuporte = null;
+let chatSuporteUserId = null; // quando o admin abre o chat de um afiliado específico
+
+function abrirChatSuporte(mensagemInicial, userIdAlvo){
+  if(!usuarioAtual){ alert('Faça login primeiro.'); return; }
+  // Afiliado sempre fala no PRÓPRIO chat. Admin pode abrir o chat de qualquer afiliado (userIdAlvo).
+  chatSuporteUserId = userIdAlvo || usuarioAtual.uid;
+  document.getElementById('modalChatSuporte').style.display = 'flex';
+  document.getElementById('tituloChatSuporte').textContent = userIdAlvo ? '💬 Chat com afiliado' : '💬 Chat com o suporte';
+
+  if(unsubscribeChatSuporte) unsubscribeChatSuporte();
+  unsubscribeChatSuporte = db.collection('chats').doc(chatSuporteUserId).collection('mensagens')
+    .orderBy('criadoEm','asc')
+    .onSnapshot(snap => {
+      const el = document.getElementById('listaChatSuporte');
+      el.innerHTML = '';
+      snap.forEach(d => {
+        const m = d.data();
+        const minhaMsg = m.autor === (userIdAlvo ? 'admin' : 'usuario');
+        const div = document.createElement('div');
+        div.style.cssText = `margin-bottom:10px;display:flex;flex-direction:column;align-items:${minhaMsg ? 'flex-end' : 'flex-start'};`;
+        div.innerHTML = `
+          <span style="font-size:10px;color:var(--muted);margin-bottom:2px;">${m.autor==='admin' ? 'Admin' : (m.autorNome||'Afiliado')}</span>
+          <div style="background:${minhaMsg ? 'var(--accent)' : 'var(--card)'};border:1px solid var(--border);color:${minhaMsg?'#fff':'var(--text)'};border-radius:12px;padding:8px 12px;font-size:13px;max-width:80%;">${escapeHtml(m.texto)}</div>
+        `;
+        el.appendChild(div);
+      });
+      el.scrollTop = el.scrollHeight;
+    });
+
+  if(mensagemInicial){
+    enviarMensagemChatSuporte(mensagemInicial);
+  }
+}
+
+function fecharChatSuporte(){
+  document.getElementById('modalChatSuporte').style.display = 'none';
+  if(unsubscribeChatSuporte){ unsubscribeChatSuporte(); unsubscribeChatSuporte = null; }
+  chatSuporteUserId = null;
+}
+
+async function enviarMensagemChatSuporte(textoForcado){
+  const input = document.getElementById('inputChatSuporte');
+  const texto = textoForcado || input.value.trim();
+  if(!texto || !chatSuporteUserId || !usuarioAtual) return;
+
+  const souAdmin = usuarioAtual.email === ADMIN_EMAIL && chatSuporteUserId !== usuarioAtual.uid;
+  const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+  const nomeAutor = doc.exists ? doc.data().nome : 'Afiliado';
+
+  await db.collection('chats').doc(chatSuporteUserId).collection('mensagens').add({
+    texto,
+    autor: souAdmin ? 'admin' : 'usuario',
+    autorNome: souAdmin ? 'Admin' : nomeAutor,
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  await db.collection('chats').doc(chatSuporteUserId).set({
+    nomeUsuario: souAdmin ? (document.getElementById('tituloChatSuporte').dataset.nome || 'Afiliado') : nomeAutor,
+    ultimaMensagem: texto,
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    lidoPeloAdmin: souAdmin
+  }, { merge: true });
+
+  if(!textoForcado) input.value = '';
+}
+function carregarConversasAdmin(){
+  db.collection('chats').orderBy('atualizadoEm','desc')
+    .onSnapshot(snap => {
+      const el = document.getElementById('listaConversasAdmin');
+      if(!el) return;
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhuma conversa ainda.</div>'; return; }
+      el.innerHTML = '';
+      snap.forEach(d => {
+        const c = d.data();
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.style.cursor = 'pointer';
+        div.innerHTML = `
+          <div class="top"><div class="autor">${c.nomeUsuario || 'Afiliado'}</div></div>
+          <div class="conteudo" style="color:var(--muted);">${escapeHtml(c.ultimaMensagem || '')}</div>
+        `;
+        div.onclick = () => {
+          document.getElementById('tituloChatSuporte').dataset.nome = c.nomeUsuario;
+          abrirChatSuporte(null, d.id);
+        };
+        el.appendChild(div);
+      });
+    });
+}
+
 function carregarCatalogosAdmin(){
   db.collectionGroup('catalogo').get().then(snap => {
     const el = document.getElementById('listaCatalogosAdmin');
@@ -1177,17 +1286,21 @@ function fecharModalAdsviral(){ document.getElementById('modalAdsviral').style.d
 async function confirmarPagamentoAdsviral(){
   const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
   const nomeAutor = doc.exists ? doc.data().nome : 'Afiliado';
+  const quantidade = document.getElementById('adsviralQtdOculta').value;
+  const valor = document.getElementById('adsviralPrecoOculto').value;
+
   await db.collection('anuncios').add({
     postId: postAdsviralAtual,
     userId: usuarioAtual.uid,
     autorNome: nomeAutor,
-    quantidade: document.getElementById('adsviralQtdOculta').value,
-    valor: document.getElementById('adsviralPrecoOculto').value,
+    quantidade,
+    valor,
     status: 'pendente',
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   });
+
   fecharModalAdsviral();
-  alert('Solicitação enviada! Assim que o admin confirmar seu pagamento, o impulso é ativado.');
+  abrirChatSuporte(`Olá! Acabei de pagar o Pix do pacote de ${quantidade} compartilhamentos (R$ ${valor}) pro post ${postAdsviralAtual}. Pode confirmar? 🙏`);
 }
 
 function carregarAdminUsuarios(){
