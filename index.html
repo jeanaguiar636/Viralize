@@ -39,8 +39,8 @@
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;}
   nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
   nav.tabs button.ativo{color:var(--accent);}
-  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalAdsviral{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
-  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalAdsviral .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
+  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalAdsviral,#modalPerfil{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
+  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalAdsviral .box,#modalPerfil .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
   #modalLogin .box{border-radius:16px;margin:auto;}
   label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;}
   input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0f1115;color:var(--text);font-size:14px;}
@@ -68,7 +68,14 @@
 <main>
   <div id="feedView"></div>
   <div id="rankingView" class="oculto"><div id="ranking"></div></div>
-  <div id="catalogoView" class="oculto"><div id="catalogoLista"></div></div>
+  <div id="catalogoView" class="oculto">
+    <div class="card" style="margin-top:12px;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">🔗 Sua loja pública (sem precisar de login pra quem visitar)</div>
+      <button onclick="copiarLinkLoja()" style="width:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:10px;padding:12px 0;font-weight:700;font-size:14px;">📋 Copiar link da minha loja</button>
+      <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Cole esse link na bio do seu TikTok/Instagram/Shopee.</p>
+    </div>
+    <div id="catalogoLista"></div>
+  </div>
   <div id="adminView" class="oculto">
     <h3 style="margin-top:16px;">⚙️ Painel do Administrador</h3>
     <div id="adminStats" style="display:flex;gap:8px;margin-bottom:16px;"></div>
@@ -162,6 +169,15 @@
     </div>
 
     <div id="campoProduto" class="oculto">
+      <label>Plataforma</label>
+      <select id="prodPlataforma">
+        <option value="Shopee">🛒 Shopee</option>
+        <option value="Amazon">📦 Amazon</option>
+        <option value="Mercado Livre">🟡 Mercado Livre</option>
+        <option value="Shein">👗 Shein</option>
+        <option value="Dridália Modas">👚 Dridália Modas</option>
+        <option value="Outro">🔗 Outro</option>
+      </select>
       <label>Nome do produto</label>
       <input type="text" id="prodNome" placeholder="Ex: Fone Bluetooth X10">
       <label>Preço (R$)</label>
@@ -170,6 +186,7 @@
       <input type="text" id="prodImg" placeholder="https://...">
       <label>Link de afiliado</label>
       <input type="text" id="prodLink" placeholder="https://shopee.com.br/... ou outro">
+      <a href="https://www.dridalia.com.br/afiliados" target="_blank" rel="noopener" style="display:block;text-align:center;background:#1e222b;border:1px solid var(--border);color:var(--accent2);text-decoration:none;font-size:13px;font-weight:700;padding:12px;border-radius:10px;margin-top:10px;">👚 Ainda não é afiliado? Afilie-se à Dridália Modas</a>
     </div>
 
     <label>Descrição / legenda</label>
@@ -204,8 +221,29 @@
 <div id="modalAviso" style="position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:24px;">
   <div style="background:#ffffff;color:#1a1a1a;border-radius:18px;padding:26px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
     <div id="iconeAviso" style="font-size:38px;margin-bottom:10px;">🔥</div>
-    <p id="textoAviso" style="font-size:15.5px;line-height:1.5;margin:0 0 20px;color:#2b2b2b;font-weight:500;"></p>
+    <p id="textoAviso" style="font-size:15.5px;line-height:1.5;margin:0 0 20px;color:#2b2b2b;font-weight:500;white-space:pre-wrap;word-break:break-word;"></p>
     <button onclick="fecharAviso()" style="background:linear-gradient(90deg,#ff5c35,#ffb347);color:#fff;border:none;border-radius:12px;padding:12px 0;width:100%;font-size:15px;font-weight:700;cursor:pointer;">OK</button>
+  </div>
+</div>
+
+<!-- Modal Editar Perfil (foto e capa da loja) -->
+<div id="modalPerfil">
+  <div class="box">
+    <button class="fechar" onclick="fecharModalPerfil()">✕</button>
+    <h3 style="margin-top:0;">🖼️ Foto e capa da sua loja</h3>
+    <p style="font-size:13px;color:var(--muted);">Isso aparece pra quem visitar sua loja pública. A capa é opcional — se você não colocar, aparece só a foto de perfil redondinha, como no Linktree.</p>
+
+    <label>Foto de perfil</label>
+    <input type="file" id="inputFotoPerfil" accept="image/*">
+    <div id="previewFotoPerfil" style="margin-top:8px;"></div>
+
+    <label style="margin-top:16px;">Capa (opcional)</label>
+    <input type="file" id="inputFotoCapa" accept="image/*">
+    <div id="previewFotoCapa" style="margin-top:8px;"></div>
+    <button onclick="removerCapaPerfil()" style="margin-top:8px;background:#1e222b;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:12px;">Remover capa</button>
+
+    <div id="statusUploadPerfil" style="font-size:12px;color:var(--muted);margin-top:10px;"></div>
+    <button class="btn-principal" onclick="salvarPerfil()">💾 Salvar</button>
   </div>
 </div>
 
@@ -240,6 +278,7 @@
     <button class="fechar" onclick="fecharModalMenu()">✕</button>
     <h3 style="margin-top:0;">Menu</h3>
     <div id="listaPaginasMenu"></div>
+    <button onclick="fecharModalMenu();abrirModalPerfil()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🖼️ Editar foto e capa da loja</button>
     <button onclick="fecharModalMenu();abrirChatSuporte()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">💬 Falar com o suporte</button>
     <button onclick="abrirPagina('privacidade')" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🔒 Política de Privacidade</button>
     <button onclick="sairDaConta()" style="width:100%;text-align:left;background:#2a1616;border:1px solid #4a2020;color:#ff8080;padding:14px;border-radius:10px;margin-top:8px;">🚪 Sair</button>
@@ -525,10 +564,12 @@ async function publicar(){
     post.produtoPreco = document.getElementById('prodPreco').value.trim();
     post.produtoImg = document.getElementById('prodImg').value.trim();
     post.produtoLink = document.getElementById('prodLink').value.trim();
+    post.produtoPlataforma = document.getElementById('prodPlataforma').value;
     if(!post.produtoNome || !post.produtoLink){ aviso('Preencha nome e link de afiliado do produto.'); return; }
     // também salva no catálogo pessoal do usuário
     db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
       nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: post.produtoLink,
+      plataforma: post.produtoPlataforma,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp()
     });
   }
@@ -575,6 +616,7 @@ function renderEmbed(post, postId){
     return `<div class="produto-card">
       <img src="${post.produtoImg || 'https://via.placeholder.com/70'}">
       <div class="produto-info">
+        ${post.produtoPlataforma ? `<div style="font-size:10px;color:var(--accent2);font-weight:700;margin-bottom:2px;">${post.produtoPlataforma}</div>` : ''}
         <div>${post.produtoNome}</div>
         <div class="preco">R$ ${post.produtoPreco || '--'}</div>
       </div>
@@ -856,6 +898,7 @@ async function confirmarCompartilhamento(){
       produtoPreco: post.produtoPreco,
       produtoImg: post.produtoImg,
       produtoLink: link,
+      produtoPlataforma: post.produtoPlataforma,
       origemPostId: postId,
       origemAutorNome: post.autorNome || null,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
@@ -865,6 +908,7 @@ async function confirmarCompartilhamento(){
 
     db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
       nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: link,
+      plataforma: post.produtoPlataforma,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp()
     });
   } else {
@@ -942,7 +986,71 @@ function carregarRanking(){
     });
 }
 
-/* ---------------- CATÁLOGO ---------------- */
+/* ---------------- PERFIL DA LOJA (foto e capa) ---------------- */
+let capaMarcadaParaRemover = false;
+
+async function abrirModalPerfil(){
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
+  capaMarcadaParaRemover = false;
+  document.getElementById('inputFotoPerfil').value = '';
+  document.getElementById('inputFotoCapa').value = '';
+  document.getElementById('statusUploadPerfil').textContent = '';
+
+  const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+  const dados = doc.exists ? doc.data() : {};
+
+  document.getElementById('previewFotoPerfil').innerHTML = dados.fotoPerfil
+    ? `<img src="${dados.fotoPerfil}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;">`
+    : '<span style="font-size:12px;color:var(--muted);">Nenhuma foto ainda</span>';
+
+  document.getElementById('previewFotoCapa').innerHTML = dados.fotoCapa
+    ? `<img src="${dados.fotoCapa}" style="width:100%;max-height:100px;object-fit:cover;border-radius:8px;">`
+    : '<span style="font-size:12px;color:var(--muted);">Nenhuma capa ainda</span>';
+
+  document.getElementById('modalPerfil').style.display = 'flex';
+}
+function fecharModalPerfil(){ document.getElementById('modalPerfil').style.display = 'none'; }
+
+function removerCapaPerfil(){
+  capaMarcadaParaRemover = true;
+  document.getElementById('previewFotoCapa').innerHTML = '<span style="font-size:12px;color:var(--muted);">Capa será removida ao salvar</span>';
+  document.getElementById('inputFotoCapa').value = '';
+}
+
+async function salvarPerfil(){
+  const statusEl = document.getElementById('statusUploadPerfil');
+  const arquivoPerfil = document.getElementById('inputFotoPerfil').files[0];
+  const arquivoCapa = document.getElementById('inputFotoCapa').files[0];
+  const atualizacoes = {};
+
+  try{
+    if(arquivoPerfil){
+      statusEl.textContent = 'Enviando foto de perfil...';
+      atualizacoes.fotoPerfil = await subirArquivoR2(arquivoPerfil);
+    }
+    if(arquivoCapa){
+      statusEl.textContent = 'Enviando capa...';
+      atualizacoes.fotoCapa = await subirArquivoR2(arquivoCapa);
+    }
+    if(capaMarcadaParaRemover && !arquivoCapa){
+      atualizacoes.fotoCapa = firebase.firestore.FieldValue.delete();
+    }
+
+    await db.collection('usuarios').doc(usuarioAtual.uid).set(atualizacoes, { merge: true });
+    statusEl.textContent = '';
+    fecharModalPerfil();
+    aviso('Perfil da loja atualizado! ✅');
+  }catch(err){
+    statusEl.textContent = '';
+    aviso('Erro ao salvar: ' + err.message);
+  }
+}
+function copiarLinkLoja(){
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
+  const link = window.location.origin + '/loja/' + usuarioAtual.uid;
+  navigator.clipboard.writeText(link);
+  aviso('Link da sua loja copiado! Cole na bio do TikTok, Instagram ou onde quiser divulgar:\n' + link, '🔗');
+}
 function carregarCatalogo(){
   if(!usuarioAtual) return;
   db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').orderBy('criadoEm','desc')
