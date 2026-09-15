@@ -200,6 +200,15 @@
   </div>
 </div>
 
+<!-- Modal Aviso (substitui o aviso() feio do navegador) -->
+<div id="modalAviso" style="position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:24px;">
+  <div style="background:#ffffff;color:#1a1a1a;border-radius:18px;padding:26px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+    <div id="iconeAviso" style="font-size:38px;margin-bottom:10px;">🔥</div>
+    <p id="textoAviso" style="font-size:15.5px;line-height:1.5;margin:0 0 20px;color:#2b2b2b;font-weight:500;"></p>
+    <button onclick="fecharAviso()" style="background:linear-gradient(90deg,#ff5c35,#ffb347);color:#fff;border:none;border-radius:12px;padding:12px 0;width:100%;font-size:15px;font-weight:700;cursor:pointer;">OK</button>
+  </div>
+</div>
+
 <!-- Modal Chat de Suporte (ao vivo) -->
 <div id="modalChatSuporte" style="position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:36;">
   <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);">
@@ -297,12 +306,21 @@ let tipoSelecionado = "texto";
 const ADMIN_EMAIL = "jeanaguiar636@gmail.com";
 carregarCoresSalvas();
 
+function aviso(mensagem, icone){
+  document.getElementById('textoAviso').textContent = mensagem;
+  document.getElementById('iconeAviso').textContent = icone || '🔥';
+  document.getElementById('modalAviso').style.display = 'flex';
+}
+function fecharAviso(){
+  document.getElementById('modalAviso').style.display = 'none';
+}
+
 /* ---------------- LOGIN ---------------- */
 function entrarOuCriar(){
   const nome = document.getElementById('loginNome').value.trim();
   const email = document.getElementById('loginEmail').value.trim();
   const senha = document.getElementById('loginSenha').value;
-  if(!email || senha.length < 6){ alert('Preencha e-mail e senha (mín. 6 caracteres).'); return; }
+  if(!email || senha.length < 6){ aviso('Preencha e-mail e senha (mín. 6 caracteres).'); return; }
 
   auth.signInWithEmailAndPassword(email, senha)
     .catch(() => {
@@ -316,7 +334,7 @@ function entrarOuCriar(){
         });
       });
     })
-    .catch(err => alert('Erro: ' + err.message));
+    .catch(err => aviso('Erro: ' + err.message));
 }
 
 auth.onAuthStateChanged(async (user) => {
@@ -468,7 +486,7 @@ async function subirArquivoR2(arquivo){
 
 /* ---------------- PUBLICAR ---------------- */
 async function publicar(){
-  if(!usuarioAtual){ alert('Faça login primeiro.'); return; }
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
   const texto = document.getElementById('inputTexto').value.trim();
   const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
   const nomeAutor = doc.exists ? doc.data().nome : 'Afiliado';
@@ -485,19 +503,19 @@ async function publicar(){
 
   if(tipoSelecionado.startsWith('video_')){
     const link = document.getElementById('inputLink').value.trim();
-    if(!link){ alert('Cole o link do vídeo.'); return; }
+    if(!link){ aviso('Cole o link do vídeo.'); return; }
     post.link = link;
   }
 
   if(tipoSelecionado === 'midia_propria'){
     const arquivo = document.getElementById('inputArquivo').files[0];
-    if(!arquivo){ alert('Selecione um arquivo.'); return; }
+    if(!arquivo){ aviso('Selecione um arquivo.'); return; }
     try{
       const urlPublica = await subirArquivoR2(arquivo);
       post.midiaUrl = urlPublica;
       post.midiaTipo = arquivo.type;
     }catch(err){
-      alert('Erro no upload: ' + err.message);
+      aviso('Erro no upload: ' + err.message);
       return;
     }
   }
@@ -507,7 +525,7 @@ async function publicar(){
     post.produtoPreco = document.getElementById('prodPreco').value.trim();
     post.produtoImg = document.getElementById('prodImg').value.trim();
     post.produtoLink = document.getElementById('prodLink').value.trim();
-    if(!post.produtoNome || !post.produtoLink){ alert('Preencha nome e link de afiliado do produto.'); return; }
+    if(!post.produtoNome || !post.produtoLink){ aviso('Preencha nome e link de afiliado do produto.'); return; }
     // também salva no catálogo pessoal do usuário
     db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
       nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: post.produtoLink,
@@ -650,14 +668,14 @@ function carregarPaginasNoMenu(){
 async function criarPaginaAdmin(){
   const titulo = document.getElementById('novaPaginaTitulo').value.trim();
   const conteudo = document.getElementById('novaPaginaConteudo').value.trim();
-  if(!titulo || !conteudo){ alert('Preencha título e conteúdo da página.'); return; }
+  if(!titulo || !conteudo){ aviso('Preencha título e conteúdo da página.'); return; }
   await db.collection('paginas').add({
     titulo, conteudo, criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   });
   document.getElementById('novaPaginaTitulo').value = '';
   document.getElementById('novaPaginaConteudo').value = '';
   carregarAdminPaginas();
-  alert('Página criada! Já aparece no menu ☰ do app.');
+  aviso('Página criada! Já aparece no menu ☰ do app.');
 }
 
 function carregarAdminPaginas(){
@@ -688,7 +706,7 @@ let postComentarioAtual = null;
 let unsubscribeComentarios = null;
 
 function abrirModalComentarios(postId){
-  if(!usuarioAtual){ alert('Faça login primeiro.'); return; }
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
   postComentarioAtual = postId;
   document.getElementById('modalComentarios').style.display = 'flex';
   document.getElementById('inputComentario').value = '';
@@ -778,7 +796,7 @@ function escapeHtml(s){
 let postPendenteCompartilhar = null;
 
 async function compartilhar(postId, btn){
-  if(!usuarioAtual){ alert('Faça login primeiro.'); return; }
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
 
   const doc = await db.collection('posts').doc(postId).get();
   const post = doc.data();
@@ -788,7 +806,7 @@ async function compartilhar(postId, btn){
   // Produto ou vídeo de afiliado: abre modal pedindo o link de afiliado da pessoa
   if(post.tipo === 'produto' || ehVideoDeAfiliado){
     if(post.autorId === usuarioAtual.uid){
-      alert('Esse conteúdo já é seu! Use o compartilhamento normal pra divulgar.');
+      aviso('Esse conteúdo já é seu! Use o compartilhamento normal pra divulgar.');
       return compartilharLinkDireto(postId);
     }
     postPendenteCompartilhar = { postId, post };
@@ -821,7 +839,7 @@ async function compartilhar(postId, btn){
 
 async function confirmarCompartilhamento(){
   const link = document.getElementById('meuLinkAfiliado').value.trim();
-  if(!link){ alert('Cole seu link de afiliado.'); return; }
+  if(!link){ aviso('Cole seu link de afiliado.'); return; }
   if(!postPendenteCompartilhar) return;
 
   const { postId, post } = postPendenteCompartilhar;
@@ -874,7 +892,7 @@ async function confirmarCompartilhamento(){
   }).catch(()=>{});
 
   fecharModalCompartilhar();
-  alert('Compartilhado! Já apareceu no seu feed, com o seu link. 🚀');
+  aviso('Compartilhado! Já apareceu no seu feed, com o seu link. 🚀');
 }
 
 function fecharModalCompartilhar(){
@@ -899,7 +917,7 @@ async function compartilharLinkDireto(postId){
     navigator.share({ title: 'Olha isso no Viralize!', url: link }).catch(()=>{});
   } else {
     navigator.clipboard.writeText(link);
-    alert('Link copiado! Cole onde quiser compartilhar:\n' + link);
+    aviso('Link copiado! Cole onde quiser compartilhar:\n' + link);
   }
 }
 function registrarClique(postId){
@@ -1081,7 +1099,7 @@ async function salvarCoresAdmin(){
   const cores = {};
   inputs.forEach(i => cores[i.dataset.var] = i.value);
   await db.collection('config').doc('aparencia').set(cores);
-  alert('Cores salvas! Já valem pra todo mundo que abrir o app agora. 🎨');
+  aviso('Cores salvas! Já valem pra todo mundo que abrir o app agora. 🎨');
 }
 
 function restaurarCoresPadrao(){
@@ -1094,7 +1112,7 @@ let unsubscribeChatSuporte = null;
 let chatSuporteUserId = null; // quando o admin abre o chat de um afiliado específico
 
 function abrirChatSuporte(mensagemInicial, userIdAlvo){
-  if(!usuarioAtual){ alert('Faça login primeiro.'); return; }
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
   // Afiliado sempre fala no PRÓPRIO chat. Admin pode abrir o chat de qualquer afiliado (userIdAlvo).
   chatSuporteUserId = userIdAlvo || usuarioAtual.uid;
   document.getElementById('modalChatSuporte').style.display = 'flex';
@@ -1224,7 +1242,7 @@ async function salvarConfigAdsviral(){
     precoPacote: document.getElementById('configPrecoPacote').value.trim(),
     quantidadePacote: document.getElementById('configQtdPacote').value.trim()
   });
-  alert('Configuração do AdsViral salva!');
+  aviso('Configuração do AdsViral salva!');
 }
 
 function carregarAdsviralPendentes(){
@@ -1274,7 +1292,7 @@ async function abrirModalAdsviral(postId){
     <p style="font-size:13px;color:var(--muted);">Envie o Pix pra chave abaixo e depois toque em "Já paguei". Sua solicitação vai pra aprovação do admin.</p>
     <div style="background:#1e222b;border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
       <span style="font-size:13px;word-break:break-all;">${c.chavePix}</span>
-      <button onclick="navigator.clipboard.writeText('${c.chavePix}');alert('Chave Pix copiada!')" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;">Copiar</button>
+      <button onclick="navigator.clipboard.writeText('${c.chavePix}');aviso('Chave Pix copiada!')" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;">Copiar</button>
     </div>
   `;
   document.getElementById('adsviralPrecoOculto').value = c.precoPacote;
