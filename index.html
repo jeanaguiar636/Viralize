@@ -1047,7 +1047,7 @@ async function salvarPerfil(){
 }
 function copiarLinkLoja(){
   if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
-  const link = window.location.origin + '/loja/' + usuarioAtual.uid;
+  const link = window.location.origin + '/loja.html?uid=' + usuarioAtual.uid;
   navigator.clipboard.writeText(link);
   aviso('Link da sua loja copiado! Cole na bio do TikTok, Instagram ou onde quiser divulgar:\n' + link, '🔗');
 }
