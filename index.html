@@ -569,7 +569,7 @@ async function publicar(){
     // também salva no catálogo pessoal do usuário
     db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
       nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: post.produtoLink,
-      plataforma: post.produtoPlataforma,
+      plataforma: post.produtoPlataforma, ativo: true,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp()
     });
   }
@@ -908,7 +908,7 @@ async function confirmarCompartilhamento(){
 
     db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
       nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: link,
-      plataforma: post.produtoPlataforma,
+      plataforma: post.produtoPlataforma, ativo: true,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp()
     });
   } else {
@@ -1060,15 +1060,23 @@ function carregarCatalogo(){
       el.innerHTML = '<h3>🛍️ Meu Catálogo</h3>';
       snap.forEach(d => {
         const p = d.data();
-        el.innerHTML += `<div class="produto-card">
+        const ativo = p.ativo !== false; // itens antigos sem o campo contam como ativos
+        el.innerHTML += `<div class="produto-card" style="${ativo ? '' : 'opacity:.5;'}">
           <img src="${p.img || 'https://via.placeholder.com/70'}">
           <div class="produto-info">
             <div>${p.nome}</div>
             <div class="preco">R$ ${p.preco||'--'}</div>
+            <div style="font-size:10px;color:${ativo ? '#4caf50' : 'var(--muted)'};font-weight:700;">${ativo ? '● Ativo na loja' : '○ Desativado (não aparece na loja)'}</div>
           </div>
+          <button onclick="alternarStatusProduto('${d.id}', ${ativo})" style="background:${ativo ? '#3a1e1e' : '#1e3a24'};color:${ativo ? '#ff8080' : '#7ee08a'};border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">${ativo ? 'Desativar' : 'Ativar'}</button>
         </div>`;
       });
     });
+}
+
+function alternarStatusProduto(itemId, estaAtivo){
+  db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').doc(itemId)
+    .update({ ativo: !estaAtivo });
 }
 
 /* ---------------- PAINEL ADMIN ---------------- */
