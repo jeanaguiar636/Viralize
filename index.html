@@ -500,26 +500,31 @@ function urlEmbedTiktok(url){
 
 /* ---------------- UPLOAD PRO CLOUDFLARE R2 ---------------- */
 async function subirArquivoR2(arquivo){
-  const statusEl = document.getElementById('statusUpload');
-  statusEl.textContent = 'Preparando upload...';
+  const statusEl = document.getElementById('statusUpload') || document.getElementById('statusUploadPerfil');
+  if(statusEl) statusEl.textContent = 'Preparando arquivo...';
 
-  const resp = await fetch('/api/r2-upload-url', {
+  const dadosBase64 = await new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onload = () => resolve(leitor.result.split(',')[1]); // remove o prefixo "data:tipo;base64,"
+    leitor.onerror = reject;
+    leitor.readAsDataURL(arquivo);
+  });
+
+  if(statusEl) statusEl.textContent = 'Enviando arquivo...';
+
+  const resp = await fetch('/api/r2-upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nomeArquivo: arquivo.name, tipoArquivo: arquivo.type })
+    body: JSON.stringify({ nomeArquivo: arquivo.name, tipoArquivo: arquivo.type, dadosBase64 })
   });
-  if(!resp.ok){ throw new Error('Não foi possível preparar o upload.'); }
-  const { urlUpload, urlPublica } = await resp.json();
 
-  statusEl.textContent = 'Enviando arquivo...';
-  const uploadResp = await fetch(urlUpload, {
-    method: 'PUT',
-    headers: { 'Content-Type': arquivo.type },
-    body: arquivo
-  });
-  if(!uploadResp.ok){ throw new Error('Falha ao enviar o arquivo pro R2.'); }
+  if(!resp.ok){
+    const erro = await resp.json().catch(() => ({}));
+    throw new Error(erro.erro || 'Não foi possível enviar o arquivo.');
+  }
 
-  statusEl.textContent = 'Upload concluído ✅';
+  const { urlPublica } = await resp.json();
+  if(statusEl) statusEl.textContent = 'Upload concluído ✅';
   return urlPublica;
 }
 
