@@ -39,8 +39,8 @@
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;}
   nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
   nav.tabs button.ativo{color:var(--accent);}
-  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalAdsviral,#modalPerfil{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
-  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalAdsviral .box,#modalPerfil .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
+  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalAdsviral,#modalPerfil,#modalNotificacoes{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
+  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalAdsviral .box,#modalPerfil .box,#modalNotificacoes .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
   #modalLogin .box{border-radius:16px;margin:auto;}
   label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;}
   input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0f1115;color:var(--text);font-size:14px;}
@@ -62,7 +62,12 @@
 <header>
   <button onclick="abrirModalMenu()" style="background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:4px 8px;">☰</button>
   <h1>🔥 Viralize</h1>
-  <div id="userBox">carregando...</div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <button onclick="abrirModalNotificacoes()" style="position:relative;background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px;">
+      🔔<span id="badgeNotificacoes" class="oculto" style="position:absolute;top:0;right:0;background:var(--accent);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:14px;"></span>
+    </button>
+    <div id="userBox">carregando...</div>
+  </div>
 </header>
 
 <main>
@@ -272,6 +277,15 @@
   </div>
 </div>
 
+<!-- Modal Notificações -->
+<div id="modalNotificacoes">
+  <div class="box">
+    <button class="fechar" onclick="fecharModalNotificacoes()">✕</button>
+    <h3 style="margin-top:0;">🔔 Notificações</h3>
+    <div id="listaNotificacoes"></div>
+  </div>
+</div>
+
 <!-- Modal Menu -->
 <div id="modalMenu">
   <div class="box">
@@ -406,6 +420,7 @@ auth.onAuthStateChanged(async (user) => {
     carregarFeed();
     carregarRanking();
     carregarCatalogo();
+    escutarNotificacoes();
 
     if(user.email === ADMIN_EMAIL){
       document.getElementById('tabAdmin').classList.remove('oculto');
@@ -676,7 +691,58 @@ async function carregarEmbedTiktok(containerId, url){
   }
 }
 
-/* ---------------- MENU / PÁGINAS / PRIVACIDADE ---------------- */
+/* ---------------- NOTIFICAÇÕES ---------------- */
+let unsubscribeNotificacoes = null;
+
+function criarNotificacao(uidDestino, texto){
+  if(!uidDestino) return;
+  db.collection('usuarios').doc(uidDestino).collection('notificacoes').add({
+    texto, lida: false, criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(()=>{});
+}
+
+function escutarNotificacoes(){
+  if(!usuarioAtual) return;
+  db.collection('usuarios').doc(usuarioAtual.uid).collection('notificacoes')
+    .where('lida','==',false)
+    .onSnapshot(snap => {
+      const badge = document.getElementById('badgeNotificacoes');
+      if(snap.size > 0){
+        badge.textContent = snap.size > 9 ? '9+' : snap.size;
+        badge.classList.remove('oculto');
+      } else {
+        badge.classList.add('oculto');
+      }
+    });
+}
+
+function abrirModalNotificacoes(){
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
+  document.getElementById('modalNotificacoes').style.display = 'flex';
+
+  if(unsubscribeNotificacoes) unsubscribeNotificacoes();
+  unsubscribeNotificacoes = db.collection('usuarios').doc(usuarioAtual.uid).collection('notificacoes')
+    .orderBy('criadoEm','desc').limit(30)
+    .onSnapshot(snap => {
+      const el = document.getElementById('listaNotificacoes');
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhuma notificação ainda.</div>'; return; }
+      el.innerHTML = '';
+      snap.forEach(d => {
+        const n = d.data();
+        const div = document.createElement('div');
+        div.style.cssText = `padding:12px;border-radius:10px;margin-bottom:8px;background:${n.lida ? 'transparent' : '#1e222b'};border:1px solid var(--border);cursor:pointer;`;
+        div.innerHTML = `<div style="font-size:13px;">${n.lida ? '' : '🔵 '}${escapeHtml(n.texto)}</div>`;
+        div.onclick = () => {
+          if(!n.lida) db.collection('usuarios').doc(usuarioAtual.uid).collection('notificacoes').doc(d.id).update({ lida: true });
+        };
+        el.appendChild(div);
+      });
+    });
+}
+function fecharModalNotificacoes(){
+  document.getElementById('modalNotificacoes').style.display = 'none';
+  if(unsubscribeNotificacoes){ unsubscribeNotificacoes(); unsubscribeNotificacoes = null; }
+}
 function abrirModalMenu(){
   carregarPaginasNoMenu();
   document.getElementById('modalMenu').style.display = 'flex';
@@ -823,6 +889,12 @@ async function enviarComentario(){
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   });
   document.getElementById('inputComentario').value = '';
+
+  const postDoc = await db.collection('posts').doc(postComentarioAtual).get();
+  const post = postDoc.data();
+  if(post && post.autorId !== usuarioAtual.uid){
+    criarNotificacao(post.autorId, `💬 ${nomeAutor} comentou no seu post`);
+  }
 }
 function carregarFeed(){
   db.collection('posts').orderBy('criadoEm','desc').limit(50)
@@ -963,6 +1035,10 @@ async function confirmarCompartilhamento(){
   await db.collection('usuarios').doc(usuarioAtual.uid).update({
     pontos: firebase.firestore.FieldValue.increment(15)
   }).catch(()=>{});
+
+  if(post.autorId && post.autorId !== usuarioAtual.uid){
+    criarNotificacao(post.autorId, `↗️ ${nomeAutor} compartilhou seu post`);
+  }
 
   fecharModalCompartilhar();
   aviso('Compartilhado! Já apareceu no seu feed, com o seu link. 🚀');
@@ -1195,7 +1271,10 @@ function carregarAdminAprovacoes(){
 
 function responderAprovacao(userId, novoStatus){
   db.collection('usuarios').doc(userId).update({ status: novoStatus })
-    .then(() => carregarAdminStats());
+    .then(() => {
+      carregarAdminStats();
+      criarNotificacao(userId, novoStatus === 'aprovado' ? '✅ Seu cadastro foi aprovado! Bem-vindo ao Viralize.' : '🚫 Seu cadastro não foi aprovado.');
+    });
 }
 
 /* ---------------- PALETA DE CORES (ADMIN) ---------------- */
@@ -1421,9 +1500,14 @@ async function aprovarAnuncio(anuncioId){
     anuncioAtivo: true
   });
   await db.collection('anuncios').doc(anuncioId).update({ status: 'aprovado' });
+  criarNotificacao(a.userId, `🚀 Seu anúncio AdsViral (${a.quantidade} compartilhamentos) foi aprovado e já está ativo!`);
 }
 function recusarAnuncio(anuncioId){
-  db.collection('anuncios').doc(anuncioId).update({ status: 'recusado' });
+  db.collection('anuncios').doc(anuncioId).get().then(doc => {
+    const a = doc.data();
+    db.collection('anuncios').doc(anuncioId).update({ status: 'recusado' });
+    if(a) criarNotificacao(a.userId, '❌ Seu pedido de anúncio AdsViral não foi confirmado. Fale com o suporte se já pagou.');
+  });
 }
 
 /* ---------------- ADSVIRAL (lado do afiliado que compra) ---------------- */
