@@ -499,7 +499,31 @@ function urlEmbedTiktok(url){
 }
 
 /* ---------------- UPLOAD PRO CLOUDFLARE R2 ---------------- */
-async function subirArquivoR2(arquivo){
+async function comprimirImagemSeForImagem(arquivo){
+  if(!arquivo.type.startsWith('image/')) return arquivo; // vídeo/áudio passa direto, sem comprimir
+  return new Promise((resolve) => {
+    const img = new Image();
+    const leitor = new FileReader();
+    leitor.onload = (e) => { img.src = e.target.result; };
+    img.onload = () => {
+      const larguraMax = 1280;
+      const escala = Math.min(1, larguraMax / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * escala;
+      canvas.height = img.height * escala;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if(!blob){ resolve(arquivo); return; }
+        resolve(new File([blob], arquivo.name, { type: 'image/jpeg' }));
+      }, 'image/jpeg', 0.75);
+    };
+    img.onerror = () => resolve(arquivo); // se der erro, envia o original mesmo
+    leitor.readAsDataURL(arquivo);
+  });
+}
+
+async function subirArquivoR2(arquivoOriginal){
+  const arquivo = await comprimirImagemSeForImagem(arquivoOriginal);
   const statusEl = document.getElementById('statusUpload') || document.getElementById('statusUploadPerfil');
   if(statusEl) statusEl.textContent = 'Preparando arquivo...';
 
@@ -1071,7 +1095,7 @@ function carregarCatalogo(){
           <div class="produto-info">
             <div>${p.nome}</div>
             <div class="preco">R$ ${p.preco||'--'}</div>
-            <div style="font-size:10px;color:${ativo ? '#4caf50' : 'var(--muted)'};font-weight:700;">${ativo ? '● Ativo na loja' : '○ Desativado (não aparece na loja)'}</div>
+            <div style="font-size:10px;color:${ativo ? '#4caf50' : 'var(--muted)'};font-weight:700;">${ativo ? '● Ativo na loja' : '○ Desativado (não aparece na loja)'} · 🖱️ ${p.cliques||0} cliques</div>
           </div>
           <button onclick="alternarStatusProduto('${d.id}', ${ativo})" style="background:${ativo ? '#3a1e1e' : '#1e3a24'};color:${ativo ? '#ff8080' : '#7ee08a'};border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">${ativo ? 'Desativar' : 'Ativar'}</button>
         </div>`;
