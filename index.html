@@ -293,6 +293,7 @@
     <h3 style="margin-top:0;">Menu</h3>
     <div id="listaPaginasMenu"></div>
     <button onclick="fecharModalMenu();abrirModalPerfil()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🖼️ Editar foto e capa da loja</button>
+    <button onclick="copiarLinkConvite()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🎁 Convide e ganhe pontos</button>
     <button onclick="fecharModalMenu();abrirChatSuporte()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">💬 Falar com o suporte</button>
     <button onclick="abrirPagina('privacidade')" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🔒 Política de Privacidade</button>
     <button onclick="sairDaConta()" style="width:100%;text-align:left;background:#2a1616;border:1px solid #4a2020;color:#ff8080;padding:14px;border-radius:10px;margin-top:8px;">🚪 Sair</button>
@@ -357,6 +358,7 @@ const db = firebase.firestore();
 let usuarioAtual = null;
 let tipoSelecionado = "texto";
 const ADMIN_EMAIL = "jeanaguiar636@gmail.com";
+const uidConvite = new URLSearchParams(window.location.search).get('convite');
 carregarCoresSalvas();
 
 function aviso(mensagem, icone){
@@ -383,7 +385,8 @@ function entrarOuCriar(){
           email: email,
           criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
           pontos: 0,
-          status: email === ADMIN_EMAIL ? 'aprovado' : 'pendente'
+          status: email === ADMIN_EMAIL ? 'aprovado' : 'pendente',
+          convidadoPor: uidConvite || null
         });
       });
     })
@@ -772,6 +775,13 @@ function abrirModalMenu(){
   document.getElementById('modalMenu').style.display = 'flex';
 }
 function fecharModalMenu(){ document.getElementById('modalMenu').style.display = 'none'; }
+function copiarLinkConvite(){
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
+  fecharModalMenu();
+  const link = window.location.origin + '/?convite=' + usuarioAtual.uid;
+  navigator.clipboard.writeText(link);
+  aviso('Link de convite copiado! Cada afiliado que entrar por ele e for aprovado te dá 30 pontos:\n' + link, '🎁');
+}
 function sairDaConta(){
   fecharModalMenu();
   auth.signOut();
@@ -1299,11 +1309,21 @@ function carregarAdminAprovacoes(){
 }
 
 function responderAprovacao(userId, novoStatus){
-  db.collection('usuarios').doc(userId).update({ status: novoStatus })
-    .then(() => {
+  db.collection('usuarios').doc(userId).get().then(doc => {
+    const dados = doc.data() || {};
+    db.collection('usuarios').doc(userId).update({ status: novoStatus }).then(() => {
       carregarAdminStats();
       criarNotificacao(userId, novoStatus === 'aprovado' ? '✅ Seu cadastro foi aprovado! Bem-vindo ao Viralize.' : '🚫 Seu cadastro não foi aprovado.');
+
+      if(novoStatus === 'aprovado' && dados.convidadoPor){
+        db.collection('usuarios').doc(dados.convidadoPor).update({
+          pontos: firebase.firestore.FieldValue.increment(30),
+          indicacoes: firebase.firestore.FieldValue.increment(1)
+        }).catch(()=>{});
+        criarNotificacao(dados.convidadoPor, `🎁 ${dados.nome || 'Alguém'} entrou pelo seu convite! Você ganhou 30 pontos.`);
+      }
     });
+  });
 }
 
 /* ---------------- PALETA DE CORES (ADMIN) ---------------- */
