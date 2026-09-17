@@ -636,12 +636,22 @@ async function publicar(){
     post.produtoLink = document.getElementById('prodLink').value.trim();
     post.produtoPlataforma = document.getElementById('prodPlataforma').value;
     if(!post.produtoNome || !post.produtoLink){ aviso('Preencha nome e link de afiliado do produto.'); return; }
-    // também salva no catálogo pessoal do usuário
-    db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
+    // também salva no catálogo pessoal do usuário — atualiza se já existir (evita duplicar)
+    const existente = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo')
+      .where('nome','==', post.produtoNome).where('link','==', post.produtoLink).limit(1).get();
+
+    const dadosCatalogo = {
       nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: post.produtoLink,
-      plataforma: post.produtoPlataforma, ativo: true,
-      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
-    });
+      plataforma: post.produtoPlataforma, ativo: true
+    };
+
+    if(!existente.empty){
+      await existente.docs[0].ref.update(dadosCatalogo);
+    } else {
+      await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
+        ...dadosCatalogo, criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
   }
 
   await db.collection('posts').add(post);
@@ -1205,17 +1215,25 @@ function carregarCatalogo(){
       snap.forEach(d => {
         const p = d.data();
         const ativo = p.ativo !== false; // itens antigos sem o campo contam como ativos
-        el.innerHTML += `<div class="produto-card" style="${ativo ? '' : 'opacity:.5;'}">
+        el.innerHTML += `<div class="produto-card" style="${ativo ? '' : 'opacity:.5;'}flex-wrap:wrap;">
           <img src="${p.img || 'https://via.placeholder.com/70'}">
           <div class="produto-info">
             <div>${p.nome}</div>
             <div class="preco">R$ ${p.preco||'--'}</div>
             <div style="font-size:10px;color:${ativo ? '#4caf50' : 'var(--muted)'};font-weight:700;">${ativo ? '● Ativo na loja' : '○ Desativado (não aparece na loja)'} · 🖱️ ${p.cliques||0} cliques</div>
           </div>
-          <button onclick="alternarStatusProduto('${d.id}', ${ativo})" style="background:${ativo ? '#3a1e1e' : '#1e3a24'};color:${ativo ? '#ff8080' : '#7ee08a'};border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">${ativo ? 'Desativar' : 'Ativar'}</button>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button onclick="alternarStatusProduto('${d.id}', ${ativo})" style="background:${ativo ? '#3a1e1e' : '#1e3a24'};color:${ativo ? '#ff8080' : '#7ee08a'};border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">${ativo ? 'Desativar' : 'Ativar'}</button>
+            <button onclick="excluirDoCatalogoPessoal('${d.id}')" style="background:#2a1616;color:#ff8080;border:none;border-radius:8px;padding:6px 10px;font-size:11px;">🗑️ Excluir</button>
+          </div>
         </div>`;
       });
     });
+}
+
+function excluirDoCatalogoPessoal(itemId){
+  if(!confirm('Excluir esse item do seu catálogo? Essa ação não pode ser desfeita.')) return;
+  db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').doc(itemId).delete();
 }
 
 function alternarStatusProduto(itemId, estaAtivo){
