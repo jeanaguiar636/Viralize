@@ -126,7 +126,7 @@
         <input type="text" id="configChavePix" placeholder="CPF, e-mail, telefone ou chave aleatória">
         <label>Preço do pacote (R$)</label>
         <input type="text" id="configPrecoPacote" placeholder="Ex: 10">
-        <label>Quantidade de compartilhamentos no pacote</label>
+        <label>Quantidade de cliques no pacote</label>
         <input type="text" id="configQtdPacote" placeholder="Ex: 100">
         <button class="btn-principal" onclick="salvarConfigAdsviral()">💾 Salvar configuração</button>
       </div>
@@ -647,10 +647,12 @@ async function publicar(){
 
     if(!existente.empty){
       await existente.docs[0].ref.update(dadosCatalogo);
+      post.itemCatalogoId = existente.docs[0].id;
     } else {
-      await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
+      const novoItem = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
         ...dadosCatalogo, criadoEm: firebase.firestore.FieldValue.serverTimestamp()
       });
+      post.itemCatalogoId = novoItem.id;
     }
   }
 
@@ -964,7 +966,7 @@ function carregarFeed(){
           <div class="acoes">
             <button onclick="compartilhar('${d.id}', this)">↗️ Compartilhar (<span>${p.compartilhamentos||0}</span>)</button>
             <button onclick="abrirModalComentarios('${d.id}')">💬 Comentar</button>
-            ${(usuarioAtual && p.autorId === usuarioAtual.uid) ? `<button onclick="abrirModalAdsviral('${d.id}')">🚀 Anunciar</button>` : ''}
+            ${(usuarioAtual && p.autorId === usuarioAtual.uid && (p.tipo === 'produto' || p.linkCompra)) ? `<button onclick="abrirModalAdsviral('${d.id}')">🚀 Anunciar</button>` : ''}
             <span>👁️ ${p.visualizacoes||0}</span>
           </div>
         `;
@@ -1038,6 +1040,12 @@ async function confirmarCompartilhamento(){
   const nomeAutor = docUsuario.exists ? docUsuario.data().nome : 'Afiliado';
 
   if(post.tipo === 'produto'){
+    const novoItemRepost = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
+      nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: link,
+      plataforma: post.produtoPlataforma, ativo: true,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
     await db.collection('posts').add({
       tipo: 'produto',
       texto: `🔁 Repost de ${post.autorNome || 'um afiliado'}`,
@@ -1048,17 +1056,12 @@ async function confirmarCompartilhamento(){
       produtoImg: post.produtoImg,
       produtoLink: link,
       produtoPlataforma: post.produtoPlataforma,
+      itemCatalogoId: novoItemRepost.id,
       origemPostId: postId,
       origemAutorNome: post.autorNome || null,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
       compartilhamentos: 0,
       visualizacoes: 0
-    });
-
-    db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
-      nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: link,
-      plataforma: post.produtoPlataforma, ativo: true,
-      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
     });
   } else {
     // Repost de vídeo: mesmo vídeo (link do embed original), botão de compra com o link de quem compartilhou
@@ -1519,7 +1522,7 @@ function excluirItemCatalogoAdmin(userId, itemId){
     .then(() => carregarCatalogosAdmin());
 }
 
-/* ---------------- ADSVIRAL (venda de compartilhamentos) ---------------- */
+/* ---------------- ADSVIRAL (venda de cliques) ---------------- */
 async function carregarConfigAdsviralAdmin(){
   const doc = await db.collection('config').doc('pagamento').get();
   const c = doc.exists ? doc.data() : {};
@@ -1548,7 +1551,7 @@ function carregarAdsviralPendentes(){
         div.className = 'card';
         div.innerHTML = `
           <div class="top"><div class="autor">${a.autorNome||'Afiliado'}</div></div>
-          <div class="conteudo">Quer impulsionar 1 post com ${a.quantidade} compartilhamentos — R$ ${a.valor}</div>
+          <div class="conteudo">Quer impulsionar com ${a.quantidade} cliques — R$ ${a.valor}</div>
           <div class="acoes" style="gap:10px;">
             <button onclick="aprovarAnuncio('${d.id}')" style="background:#1e9e5e;color:#fff;padding:8px 14px;border-radius:8px;">✅ Confirmar pagamento e ativar</button>
             <button onclick="recusarAnuncio('${d.id}')" style="background:#3a1e1e;color:#ff8080;padding:8px 14px;border-radius:8px;">✕ Recusar</button>
@@ -1562,12 +1565,22 @@ function carregarAdsviralPendentes(){
 async function aprovarAnuncio(anuncioId){
   const doc = await db.collection('anuncios').doc(anuncioId).get();
   const a = doc.data();
-  await db.collection('posts').doc(a.postId).update({
-    compartilhamentos: firebase.firestore.FieldValue.increment(Number(a.quantidade) || 0),
-    anuncioAtivo: true
-  });
+
+  await db.collection('posts').doc(a.postId).update({ anuncioAtivo: true });
+
+  if(a.alvo === 'catalogo' && a.itemCatalogoId){
+    await db.collection('usuarios').doc(a.userId).collection('catalogo').doc(a.itemCatalogoId).update({
+      cliques: firebase.firestore.FieldValue.increment(Number(a.quantidade) || 0)
+    });
+  } else {
+    // vídeo com link de compra próprio: soma direto nas visualizações do post
+    await db.collection('posts').doc(a.postId).update({
+      visualizacoes: firebase.firestore.FieldValue.increment(Number(a.quantidade) || 0)
+    });
+  }
+
   await db.collection('anuncios').doc(anuncioId).update({ status: 'aprovado' });
-  criarNotificacao(a.userId, `🚀 Seu anúncio AdsViral (${a.quantidade} compartilhamentos) foi aprovado e já está ativo!`);
+  criarNotificacao(a.userId, `🚀 Seu anúncio AdsViral (${a.quantidade} cliques) foi aprovado e já está ativo!`);
 }
 function recusarAnuncio(anuncioId){
   db.collection('anuncios').doc(anuncioId).get().then(doc => {
@@ -1584,8 +1597,8 @@ async function abrirModalAdsviral(postId){
   const doc = await db.collection('config').doc('pagamento').get();
   const c = doc.exists ? doc.data() : { chavePix:'(não configurada)', precoPacote:'10', quantidadePacote:'100' };
   document.getElementById('infoAdsviral').innerHTML = `
-    <p style="font-size:14px;">📦 Pacote: <b>${c.quantidadePacote} compartilhamentos</b> por <b>R$ ${c.precoPacote}</b></p>
-    <p style="font-size:13px;color:var(--muted);">Envie o Pix pra chave abaixo e depois toque em "Já paguei". Sua solicitação vai pra aprovação do admin.</p>
+    <p style="font-size:14px;">📦 Pacote: <b>${c.quantidadePacote} cliques</b> por <b>R$ ${c.precoPacote}</b></p>
+    <p style="font-size:13px;color:var(--muted);">Cada clique é alguém acessando o link do seu produto de verdade. Envie o Pix pra chave abaixo e depois toque em "Já paguei". Sua solicitação vai pra aprovação do admin.</p>
     <div style="background:#1e222b;border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
       <span style="font-size:13px;word-break:break-all;">${c.chavePix}</span>
       <button onclick="navigator.clipboard.writeText('${c.chavePix}');aviso('Chave Pix copiada!')" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;">Copiar</button>
@@ -1603,8 +1616,15 @@ async function confirmarPagamentoAdsviral(){
   const quantidade = document.getElementById('adsviralQtdOculta').value;
   const valor = document.getElementById('adsviralPrecoOculto').value;
 
+  const postDoc = await db.collection('posts').doc(postAdsviralAtual).get();
+  const postData = postDoc.exists ? postDoc.data() : {};
+  const itemCatalogoId = postData.itemCatalogoId || null;
+  const alvo = itemCatalogoId ? 'catalogo' : 'post'; // produto = soma no catálogo; vídeo com link próprio = soma nas visualizações do post
+
   await db.collection('anuncios').add({
     postId: postAdsviralAtual,
+    itemCatalogoId,
+    alvo,
     userId: usuarioAtual.uid,
     autorNome: nomeAutor,
     quantidade,
@@ -1614,7 +1634,7 @@ async function confirmarPagamentoAdsviral(){
   });
 
   fecharModalAdsviral();
-  abrirChatSuporte(`Olá! Acabei de pagar o Pix do pacote de ${quantidade} compartilhamentos (R$ ${valor}) pro post ${postAdsviralAtual}. Pode confirmar? 🙏`);
+  abrirChatSuporte(`Olá! Acabei de pagar o Pix do pacote de ${quantidade} cliques (R$ ${valor}). Pode confirmar? 🙏`);
 }
 
 function carregarAdminUsuarios(){
