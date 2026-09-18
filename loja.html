@@ -46,6 +46,7 @@
   .produto-card .nome{font-size:12.5px;line-height:1.3;color:var(--texto);height:32px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:6px;}
   .produto-card .preco{color:var(--laranja);font-weight:800;font-size:15px;}
   .produto-card .selo{display:inline-block;background:var(--laranja);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-bottom:4px;}
+  .btn-compartilhar{position:absolute;top:6px;right:6px;background:rgba(255,255,255,.92);border:none;border-radius:50%;width:28px;height:28px;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.2);cursor:pointer;}
 
   .vazio{text-align:center;color:var(--muted);padding:60px 20px;font-size:14px;}
 
@@ -61,7 +62,7 @@
 <div id="headerLoja"></div>
 
 <div class="busca-fake" id="buscaFake">
-  <div class="caixa">🔍 Buscar nesta loja...</div>
+  <input type="text" id="inputBusca" class="caixa" placeholder="🔍 Buscar nesta loja..." oninput="filtrarProdutos(this.value)" style="width:100%;border:none;font-size:13px;color:var(--texto);outline:none;font-family:inherit;box-sizing:border-box;">
 </div>
 
 <main>
@@ -88,6 +89,72 @@ const db = firebase.firestore();
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+let todosProdutosAtivos = [];
+let uidLojaAtual = null;
+
+function compartilharProduto(p){
+  const texto = `Olha essa oferta: ${p.nome} — R$ ${p.preco || ''}`;
+  if(navigator.share){
+    navigator.share({ title: p.nome, text: texto, url: p.link }).catch(()=>{});
+  } else {
+    navigator.clipboard.writeText(`${texto}\n${p.link}`);
+    alert('Link copiado! Cole onde quiser compartilhar.');
+  }
+}
+
+function renderizarProdutos(lista){
+  const el = document.getElementById('listaProdutos');
+
+  if(todosProdutosAtivos.length === 0){
+    el.innerHTML = '<div class="vazio" style="grid-column:1/-1;">Essa loja ainda não tem produtos no catálogo.</div>';
+    return;
+  }
+  if(lista.length === 0){
+    el.innerHTML = '<div class="vazio" style="grid-column:1/-1;">Nenhum produto encontrado pra essa busca.</div>';
+    return;
+  }
+
+  el.innerHTML = '';
+  lista.forEach(p => {
+    const card = document.createElement('a');
+    card.className = 'produto-card';
+    card.href = p.link;
+    card.target = '_blank';
+    card.rel = 'noopener';
+    card.onclick = () => {
+      fetch('/api/registrar-clique', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: uidLojaAtual, itemId: p.id }),
+        keepalive: true
+      }).catch(() => {});
+    };
+    card.innerHTML = `
+      <div style="position:relative;">
+        <img src="${p.img || 'https://via.placeholder.com/300'}">
+        <button class="btn-compartilhar" aria-label="Compartilhar">↗️</button>
+      </div>
+      <div class="info">
+        <span class="selo">${escapeHtml(p.plataforma || 'OFERTA')}</span>
+        <div class="nome">${escapeHtml(p.nome || 'Produto')}</div>
+        <div class="preco">R$ ${escapeHtml(p.preco || '--')}</div>
+      </div>
+    `;
+    card.querySelector('.btn-compartilhar').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      compartilharProduto(p);
+    });
+    el.appendChild(card);
+  });
+}
+
+function filtrarProdutos(termo){
+  const termoLimpo = termo.trim().toLowerCase();
+  if(!termoLimpo){ renderizarProdutos(todosProdutosAtivos); return; }
+  const filtrados = todosProdutosAtivos.filter(p => (p.nome || '').toLowerCase().includes(termoLimpo));
+  renderizarProdutos(filtrados);
 }
 
 async function carregarLoja(){
@@ -136,31 +203,13 @@ async function carregarLoja(){
     }
 
     const catalogo = await db.collection('usuarios').doc(uid).collection('catalogo').orderBy('criadoEm','desc').get();
-    const el = document.getElementById('listaProdutos');
 
-    if(catalogo.empty){
-      el.innerHTML = '<div class="vazio" style="grid-column:1/-1;">Essa loja ainda não tem produtos no catálogo.</div>';
-      return;
-    }
+    todosProdutosAtivos = catalogo.docs
+      .filter(d => d.data().ativo !== false)
+      .map(d => ({ id: d.id, ...d.data() }));
 
-    el.innerHTML = '';
-    catalogo.forEach(d => {
-      const p = d.data();
-      const card = document.createElement('a');
-      card.className = 'produto-card';
-      card.href = p.link;
-      card.target = '_blank';
-      card.rel = 'noopener';
-      card.innerHTML = `
-        <img src="${p.img || 'https://via.placeholder.com/300'}">
-        <div class="info">
-          <span class="selo">${escapeHtml(p.plataforma || 'OFERTA')}</span>
-          <div class="nome">${escapeHtml(p.nome || 'Produto')}</div>
-          <div class="preco">R$ ${escapeHtml(p.preco || '--')}</div>
-        </div>
-      `;
-      el.appendChild(card);
-    });
+    uidLojaAtual = uid;
+    renderizarProdutos(todosProdutosAtivos);
   }catch(err){
     console.error(err);
     document.getElementById('headerLoja').innerHTML = '<header><h1 style="color:#fff;">Erro ao carregar loja</h1></header>';
