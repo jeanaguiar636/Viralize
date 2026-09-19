@@ -39,8 +39,8 @@
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;}
   nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
   nav.tabs button.ativo{color:var(--accent);}
-  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalAdsviral,#modalPerfil,#modalNotificacoes{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
-  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalAdsviral .box,#modalPerfil .box,#modalNotificacoes .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
+  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalPerfil,#modalNotificacoes,#modalAssinatura,#modalGaleria{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
+  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalPerfil .box,#modalNotificacoes .box,#modalAssinatura .box,#modalGaleria .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
   #modalLogin .box{border-radius:16px;margin:auto;}
   label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;}
   input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0f1115;color:var(--text);font-size:14px;}
@@ -91,7 +91,8 @@
       <button onclick="mudarSubAbaAdmin('paginas')" id="subTabPaginas" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Páginas</button>
       <button onclick="mudarSubAbaAdmin('cores')" id="subTabCores" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Cores</button>
       <button onclick="mudarSubAbaAdmin('catalogos')" id="subTabCatalogos" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Catálogos</button>
-      <button onclick="mudarSubAbaAdmin('adsviral')" id="subTabAdsviral" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">AdsViral</button>
+      <button onclick="mudarSubAbaAdmin('assinaturas')" id="subTabAssinaturas" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Assinaturas</button>
+      <button onclick="mudarSubAbaAdmin('galeria')" id="subTabGaleria" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Galeria</button>
       <button onclick="mudarSubAbaAdmin('chat')" id="subTabChat" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Chat</button>
     </div>
     <div id="adminAprovacoes"></div>
@@ -119,19 +120,29 @@
       </div>
     </div>
     <div id="adminCatalogos" class="oculto"><div id="listaCatalogosAdmin"></div></div>
-    <div id="adminAdsviral" class="oculto">
+    <div id="adminAssinaturas" class="oculto">
       <div class="card">
-        <h3 style="margin-top:0;">💰 Configurações do AdsViral</h3>
+        <h3 style="margin-top:0;">💳 Configuração da assinatura mensal</h3>
         <label>Chave Pix</label>
         <input type="text" id="configChavePix" placeholder="CPF, e-mail, telefone ou chave aleatória">
-        <label>Preço do pacote (R$)</label>
-        <input type="text" id="configPrecoPacote" placeholder="Ex: 10">
-        <label>Quantidade de cliques no pacote</label>
-        <input type="text" id="configQtdPacote" placeholder="Ex: 100">
-        <button class="btn-principal" onclick="salvarConfigAdsviral()">💾 Salvar configuração</button>
+        <label>Preço mensal (R$)</label>
+        <input type="text" id="configPrecoAssinatura" placeholder="Ex: 15">
+        <button class="btn-principal" onclick="salvarConfigAssinatura()">💾 Salvar configuração</button>
       </div>
       <h3>📋 Solicitações pendentes</h3>
-      <div id="listaAdsviralPendentes"></div>
+      <div id="listaAssinaturasPendentes"></div>
+      <h3>⭐ Assinantes ativos</h3>
+      <div id="listaAssinantesAtivos"></div>
+    </div>
+    <div id="adminGaleria" class="oculto">
+      <div class="card">
+        <h3 style="margin-top:0;">🖼️ Galeria de capas</h3>
+        <p style="font-size:12px;color:var(--muted);">Imagens que os afiliados assinantes podem escolher como capa da loja, com um clique.</p>
+        <input type="file" id="inputGaleriaCapa" accept="image/*">
+        <div id="statusUploadGaleria" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
+        <button class="btn-principal" onclick="enviarImagemGaleria()">📤 Enviar pra galeria</button>
+      </div>
+      <div id="listaGaleriaAdmin" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;"></div>
     </div>
     <div id="adminChat" class="oculto"><div id="listaConversasAdmin"></div></div>
   </div>
@@ -231,24 +242,27 @@
   </div>
 </div>
 
-<!-- Modal Editar Perfil (foto e capa da loja) -->
+<!-- Modal Editar Perfil (loja: nome, descrição, foto e capa) -->
 <div id="modalPerfil">
   <div class="box">
     <button class="fechar" onclick="fecharModalPerfil()">✕</button>
-    <h3 style="margin-top:0;">🖼️ Foto e capa da sua loja</h3>
-    <p style="font-size:13px;color:var(--muted);">Isso aparece pra quem visitar sua loja pública. A capa é opcional — se você não colocar, aparece só a foto de perfil redondinha, como no Linktree.</p>
+    <h3 style="margin-top:0;">🏪 Editar minha loja</h3>
+    <p style="font-size:13px;color:var(--muted);">Isso aparece pra quem visitar sua loja pública.</p>
 
     <label>Foto de perfil</label>
     <input type="file" id="inputFotoPerfil" accept="image/*">
     <div id="previewFotoPerfil" style="margin-top:8px;"></div>
 
-    <label style="margin-top:16px;">Capa (opcional)</label>
-    <input type="file" id="inputFotoCapa" accept="image/*">
-    <div id="previewFotoCapa" style="margin-top:8px;"></div>
-    <button onclick="removerCapaPerfil()" style="margin-top:8px;background:#1e222b;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:12px;">Remover capa</button>
+    <div id="blocoProLoja"></div>
+  </div>
+</div>
 
-    <div id="statusUploadPerfil" style="font-size:12px;color:var(--muted);margin-top:10px;"></div>
-    <button class="btn-principal" onclick="salvarPerfil()">💾 Salvar</button>
+<!-- Modal seletor da galeria de capas -->
+<div id="modalGaleria">
+  <div class="box">
+    <button class="fechar" onclick="fecharModalGaleria()">✕</button>
+    <h3 style="margin-top:0;">🖼️ Escolher capa da galeria</h3>
+    <div id="listaGaleriaSelecao" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
   </div>
 </div>
 
@@ -265,15 +279,13 @@
   </div>
 </div>
 
-<!-- Modal AdsViral (impulsionar post com Pix) -->
-<div id="modalAdsviral">
+<!-- Modal Assinatura (Viralize Pro) -->
+<div id="modalAssinatura">
   <div class="box">
-    <button class="fechar" onclick="fecharModalAdsviral()">✕</button>
-    <h3 style="margin-top:0;">🚀 Anunciar com AdsViral</h3>
-    <div id="infoAdsviral"></div>
-    <input type="hidden" id="adsviralPrecoOculto">
-    <input type="hidden" id="adsviralQtdOculta">
-    <button class="btn-principal" onclick="confirmarPagamentoAdsviral()">Já paguei ✅</button>
+    <button class="fechar" onclick="fecharModalAssinatura()">✕</button>
+    <h3 style="margin-top:0;">⭐ Viralize Pro</h3>
+    <div id="infoAssinatura"></div>
+    <button class="btn-principal" onclick="confirmarPagamentoAssinatura()">Já paguei ✅</button>
   </div>
 </div>
 
@@ -292,7 +304,7 @@
     <button class="fechar" onclick="fecharModalMenu()">✕</button>
     <h3 style="margin-top:0;">Menu</h3>
     <div id="listaPaginasMenu"></div>
-    <button onclick="fecharModalMenu();abrirModalPerfil()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🖼️ Editar foto e capa da loja</button>
+    <button onclick="fecharModalMenu();abrirModalPerfil()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🏪 Editar minha loja</button>
     <button onclick="copiarLinkConvite()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🎁 Convide e ganhe pontos</button>
     <button onclick="fecharModalMenu();abrirChatSuporte()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">💬 Falar com o suporte</button>
     <button onclick="abrirPagina('privacidade')" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🔒 Política de Privacidade</button>
@@ -476,16 +488,18 @@ function mudarSubAbaAdmin(sub){
   document.getElementById('adminPaginas').classList.toggle('oculto', sub!=='paginas');
   document.getElementById('adminCores').classList.toggle('oculto', sub!=='cores');
   document.getElementById('adminCatalogos').classList.toggle('oculto', sub!=='catalogos');
-  document.getElementById('adminAdsviral').classList.toggle('oculto', sub!=='adsviral');
+  document.getElementById('adminAssinaturas').classList.toggle('oculto', sub!=='assinaturas');
+  document.getElementById('adminGaleria').classList.toggle('oculto', sub!=='galeria');
   document.getElementById('adminChat').classList.toggle('oculto', sub!=='chat');
-  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios', paginas: 'subTabPaginas', cores: 'subTabCores', catalogos: 'subTabCatalogos', adsviral: 'subTabAdsviral', chat: 'subTabChat' };
+  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios', paginas: 'subTabPaginas', cores: 'subTabCores', catalogos: 'subTabCatalogos', assinaturas: 'subTabAssinaturas', galeria: 'subTabGaleria', chat: 'subTabChat' };
   Object.entries(btns).forEach(([key, id]) => {
     document.getElementById(id).style.background = key===sub ? 'var(--accent)' : '#1e222b';
     document.getElementById(id).style.color = key===sub ? '#fff' : 'var(--muted)';
   });
   if(sub === 'cores') montarCamposCores();
   if(sub === 'catalogos') carregarCatalogosAdmin();
-  if(sub === 'adsviral') { carregarConfigAdsviralAdmin(); carregarAdsviralPendentes(); }
+  if(sub === 'assinaturas') { carregarConfigAssinaturaAdmin(); carregarAssinaturasPendentes(); carregarAssinantesAtivos(); }
+  if(sub === 'galeria') carregarGaleriaAdmin();
   if(sub === 'chat') carregarConversasAdmin();
 }
 
@@ -571,6 +585,17 @@ async function subirArquivoR2(arquivoOriginal){
 }
 
 /* ---------------- PUBLICAR ---------------- */
+/* ---------------- LIMITE DE CATÁLOGO (plano grátis) ---------------- */
+const LIMITE_CATALOGO_GRATIS = 10;
+
+async function verificarLimiteCatalogo(){
+  const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+  const dados = doc.data() || {};
+  if(dados.plano === 'pago') return true;
+  const catalogo = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').get();
+  return catalogo.size < LIMITE_CATALOGO_GRATIS;
+}
+
 /* ---------------- LIMITE ANTI-SPAM (posts por dia) ---------------- */
 const LIMITE_POSTS_DIA = 15;
 
@@ -649,6 +674,10 @@ async function publicar(){
       await existente.docs[0].ref.update(dadosCatalogo);
       post.itemCatalogoId = existente.docs[0].id;
     } else {
+      if(!(await verificarLimiteCatalogo())){
+        aviso(`Seu plano grátis permite até ${LIMITE_CATALOGO_GRATIS} produtos no catálogo. Assine o Viralize Pro pra ter catálogo ilimitado! ⭐`);
+        return;
+      }
       const novoItem = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
         ...dadosCatalogo, criadoEm: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -966,7 +995,6 @@ function carregarFeed(){
           <div class="acoes">
             <button onclick="compartilhar('${d.id}', this)">↗️ Compartilhar (<span>${p.compartilhamentos||0}</span>)</button>
             <button onclick="abrirModalComentarios('${d.id}')">💬 Comentar</button>
-            ${(usuarioAtual && p.autorId === usuarioAtual.uid && (p.tipo === 'produto' || p.linkCompra)) ? `<button onclick="abrirModalAdsviral('${d.id}')">🚀 Anunciar</button>` : ''}
             <span>👁️ ${p.visualizacoes||0}</span>
           </div>
         `;
@@ -1040,6 +1068,10 @@ async function confirmarCompartilhamento(){
   const nomeAutor = docUsuario.exists ? docUsuario.data().nome : 'Afiliado';
 
   if(post.tipo === 'produto'){
+    if(!(await verificarLimiteCatalogo())){
+      aviso(`Seu plano grátis permite até ${LIMITE_CATALOGO_GRATIS} produtos no catálogo. Assine o Viralize Pro pra ter catálogo ilimitado! ⭐`);
+      return;
+    }
     const novoItemRepost = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
       nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: link,
       plataforma: post.produtoPlataforma, ativo: true,
@@ -1143,22 +1175,70 @@ function carregarRanking(){
     });
 }
 
-/* ---------------- PERFIL DA LOJA (foto e capa) ---------------- */
+/* ---------------- PERFIL DA LOJA (foto, nome, descrição e capa) ---------------- */
 let capaMarcadaParaRemover = false;
+let capaEscolhidaGaleria = null;
+let planoAtualUsuario = 'gratis';
 
 async function abrirModalPerfil(){
   if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
   capaMarcadaParaRemover = false;
+  capaEscolhidaGaleria = null;
   document.getElementById('inputFotoPerfil').value = '';
-  document.getElementById('inputFotoCapa').value = '';
   document.getElementById('statusUploadPerfil').textContent = '';
 
   const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
   const dados = doc.exists ? doc.data() : {};
+  planoAtualUsuario = dados.plano === 'pago' ? 'pago' : 'gratis';
 
   document.getElementById('previewFotoPerfil').innerHTML = dados.fotoPerfil
     ? `<img src="${dados.fotoPerfil}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;">`
     : '<span style="font-size:12px;color:var(--muted);">Nenhuma foto ainda</span>';
+
+  const bloco = document.getElementById('blocoProLoja');
+
+  if(planoAtualUsuario !== 'pago'){
+    bloco.innerHTML = `
+      <div class="card" style="margin-top:16px;background:#241a10;border-color:#4a3520;">
+        <div style="font-size:14px;font-weight:700;color:var(--accent2);margin-bottom:6px;">⭐ Recursos do Viralize Pro</div>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Assine pra editar o nome e a descrição da sua loja, escolher uma capa (upload, link ou galeria) e remover a marca Viralize.</p>
+        <button class="btn-principal" style="margin-top:0;" onclick="abrirModalAssinatura()">Assinar Viralize Pro</button>
+      </div>
+      <div id="statusUploadPerfil2" style="font-size:12px;color:var(--muted);margin-top:10px;"></div>
+      <button class="btn-principal" onclick="salvarPerfil()">💾 Salvar foto de perfil</button>
+    `;
+    return;
+  }
+
+  bloco.innerHTML = `
+    <label style="margin-top:16px;">Nome da loja</label>
+    <input type="text" id="inputNomeLoja" maxlength="40" oninput="atualizarContador('inputNomeLoja','contadorNomeLoja',40)" placeholder="Ex: Loja da Maria">
+    <div style="text-align:right;font-size:11px;color:var(--muted);" id="contadorNomeLoja">0/40</div>
+
+    <label style="margin-top:12px;">Descrição da loja</label>
+    <textarea id="inputDescricaoLoja" maxlength="100" oninput="atualizarContador('inputDescricaoLoja','contadorDescricaoLoja',100)" placeholder="Ex: Ofertas selecionadas todos os dias 🔥" style="min-height:60px;"></textarea>
+    <div style="text-align:right;font-size:11px;color:var(--muted);" id="contadorDescricaoLoja">0/100</div>
+
+    <label style="margin-top:16px;">Capa da loja</label>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <button type="button" onclick="mudarModoCapa('upload')" id="btnModoUpload" class="modo-capa-ativo" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--accent);color:#fff;font-size:12px;">📤 Upload</button>
+      <button type="button" onclick="mudarModoCapa('link')" id="btnModoLink" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:#1e222b;color:var(--muted);font-size:12px;">🔗 Link</button>
+      <button type="button" onclick="mudarModoCapa('galeria')" id="btnModoGaleria" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:#1e222b;color:var(--muted);font-size:12px;">🖼️ Galeria</button>
+    </div>
+    <div id="campoModoUpload"><input type="file" id="inputFotoCapa" accept="image/*"></div>
+    <div id="campoModoLink" class="oculto"><input type="text" id="inputLinkCapa" placeholder="https://..."></div>
+    <div id="campoModoGaleria" class="oculto"><button type="button" onclick="abrirModalGaleria()" style="width:100%;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:12px;border-radius:8px;">🖼️ Escolher da galeria</button></div>
+    <div id="previewFotoCapa" style="margin-top:8px;"></div>
+    <button onclick="removerCapaPerfil()" style="margin-top:8px;background:#1e222b;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:12px;">Remover capa</button>
+
+    <div id="statusUploadPerfil2" style="font-size:12px;color:var(--muted);margin-top:10px;"></div>
+    <button class="btn-principal" onclick="salvarPerfil()">💾 Salvar</button>
+  `;
+
+  document.getElementById('inputNomeLoja').value = dados.nomeLoja || dados.nome || '';
+  document.getElementById('inputDescricaoLoja').value = dados.descricaoLoja || '';
+  atualizarContador('inputNomeLoja','contadorNomeLoja',40);
+  atualizarContador('inputDescricaoLoja','contadorDescricaoLoja',100);
 
   document.getElementById('previewFotoCapa').innerHTML = dados.fotoCapa
     ? `<img src="${dados.fotoCapa}" style="width:100%;max-height:100px;object-fit:cover;border-radius:8px;">`
@@ -1167,36 +1247,90 @@ async function abrirModalPerfil(){
   document.getElementById('modalPerfil').style.display = 'flex';
 }
 function fecharModalPerfil(){ document.getElementById('modalPerfil').style.display = 'none'; }
+function atualizarContador(idCampo, idContador, max){
+  const tamanho = document.getElementById(idCampo).value.length;
+  document.getElementById(idContador).textContent = `${tamanho}/${max}`;
+}
+
+function mudarModoCapa(modo){
+  document.getElementById('campoModoUpload').classList.toggle('oculto', modo!=='upload');
+  document.getElementById('campoModoLink').classList.toggle('oculto', modo!=='link');
+  document.getElementById('campoModoGaleria').classList.toggle('oculto', modo!=='galeria');
+  ['Upload','Link','Galeria'].forEach(m => {
+    const btn = document.getElementById('btnModo'+m);
+    const ativo = m.toLowerCase() === modo;
+    btn.style.background = ativo ? 'var(--accent)' : '#1e222b';
+    btn.style.color = ativo ? '#fff' : 'var(--muted)';
+  });
+}
+
+async function abrirModalGaleria(){
+  const snap = await db.collection('galeriaCapas').orderBy('criadoEm','desc').get();
+  const el = document.getElementById('listaGaleriaSelecao');
+  if(snap.empty){ el.innerHTML = '<div class="vazio" style="grid-column:1/-1;">Nenhuma imagem na galeria ainda.</div>'; }
+  else {
+    el.innerHTML = '';
+    snap.forEach(d => {
+      const g = d.data();
+      const img = document.createElement('img');
+      img.src = g.url;
+      img.style.cssText = 'width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent;';
+      img.onclick = () => {
+        capaEscolhidaGaleria = g.url;
+        document.getElementById('previewFotoCapa').innerHTML = `<img src="${g.url}" style="width:100%;max-height:100px;object-fit:cover;border-radius:8px;">`;
+        fecharModalGaleria();
+      };
+      el.appendChild(img);
+    });
+  }
+  document.getElementById('modalGaleria').style.display = 'flex';
+}
+function fecharModalGaleria(){ document.getElementById('modalGaleria').style.display = 'none'; }
 
 function removerCapaPerfil(){
   capaMarcadaParaRemover = true;
+  capaEscolhidaGaleria = null;
   document.getElementById('previewFotoCapa').innerHTML = '<span style="font-size:12px;color:var(--muted);">Capa será removida ao salvar</span>';
-  document.getElementById('inputFotoCapa').value = '';
+  const inputCapa = document.getElementById('inputFotoCapa');
+  if(inputCapa) inputCapa.value = '';
 }
 
 async function salvarPerfil(){
-  const statusEl = document.getElementById('statusUploadPerfil');
+  const statusEl = document.getElementById('statusUploadPerfil2') || document.getElementById('statusUploadPerfil');
   const arquivoPerfil = document.getElementById('inputFotoPerfil').files[0];
-  const arquivoCapa = document.getElementById('inputFotoCapa').files[0];
   const atualizacoes = {};
+
+  if(planoAtualUsuario === 'pago'){
+    atualizacoes.nomeLoja = document.getElementById('inputNomeLoja').value.trim().slice(0,40);
+    atualizacoes.descricaoLoja = document.getElementById('inputDescricaoLoja').value.trim().slice(0,100);
+  }
 
   try{
     if(arquivoPerfil){
       statusEl.textContent = 'Enviando foto de perfil...';
       atualizacoes.fotoPerfil = await subirArquivoR2(arquivoPerfil);
     }
-    if(arquivoCapa){
-      statusEl.textContent = 'Enviando capa...';
-      atualizacoes.fotoCapa = await subirArquivoR2(arquivoCapa);
-    }
-    if(capaMarcadaParaRemover && !arquivoCapa){
-      atualizacoes.fotoCapa = firebase.firestore.FieldValue.delete();
+
+    if(planoAtualUsuario === 'pago'){
+      const arquivoCapa = document.getElementById('inputFotoCapa') ? document.getElementById('inputFotoCapa').files[0] : null;
+      const linkCapa = document.getElementById('inputLinkCapa') ? document.getElementById('inputLinkCapa').value.trim() : '';
+
+      if(arquivoCapa){
+        statusEl.textContent = 'Enviando capa...';
+        atualizacoes.fotoCapa = await subirArquivoR2(arquivoCapa);
+      } else if(linkCapa){
+        atualizacoes.fotoCapa = linkCapa;
+      } else if(capaEscolhidaGaleria){
+        atualizacoes.fotoCapa = capaEscolhidaGaleria;
+      } else if(capaMarcadaParaRemover){
+        atualizacoes.fotoCapa = firebase.firestore.FieldValue.delete();
+      }
     }
 
     await db.collection('usuarios').doc(usuarioAtual.uid).set(atualizacoes, { merge: true });
     statusEl.textContent = '';
     fecharModalPerfil();
-    aviso('Perfil da loja atualizado! ✅');
+    aviso('Loja atualizada! ✅');
   }catch(err){
     statusEl.textContent = '';
     aviso('Erro ao salvar: ' + err.message);
@@ -1522,27 +1656,25 @@ function excluirItemCatalogoAdmin(userId, itemId){
     .then(() => carregarCatalogosAdmin());
 }
 
-/* ---------------- ADSVIRAL (venda de cliques) ---------------- */
-async function carregarConfigAdsviralAdmin(){
+/* ---------------- ASSINATURA VIRALIZE PRO (admin) ---------------- */
+async function carregarConfigAssinaturaAdmin(){
   const doc = await db.collection('config').doc('pagamento').get();
   const c = doc.exists ? doc.data() : {};
   document.getElementById('configChavePix').value = c.chavePix || '';
-  document.getElementById('configPrecoPacote').value = c.precoPacote || '10';
-  document.getElementById('configQtdPacote').value = c.quantidadePacote || '100';
+  document.getElementById('configPrecoAssinatura').value = c.precoAssinatura || '15';
 }
-async function salvarConfigAdsviral(){
+async function salvarConfigAssinatura(){
   await db.collection('config').doc('pagamento').set({
     chavePix: document.getElementById('configChavePix').value.trim(),
-    precoPacote: document.getElementById('configPrecoPacote').value.trim(),
-    quantidadePacote: document.getElementById('configQtdPacote').value.trim()
-  });
-  aviso('Configuração do AdsViral salva!');
+    precoAssinatura: document.getElementById('configPrecoAssinatura').value.trim()
+  }, { merge: true });
+  aviso('Configuração da assinatura salva!');
 }
 
-function carregarAdsviralPendentes(){
-  db.collection('anuncios').where('status','==','pendente')
+function carregarAssinaturasPendentes(){
+  db.collection('assinaturas').where('status','==','pendente')
     .onSnapshot(snap => {
-      const el = document.getElementById('listaAdsviralPendentes');
+      const el = document.getElementById('listaAssinaturasPendentes');
       if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhuma solicitação pendente.</div>'; return; }
       el.innerHTML = '';
       snap.forEach(d => {
@@ -1551,10 +1683,10 @@ function carregarAdsviralPendentes(){
         div.className = 'card';
         div.innerHTML = `
           <div class="top"><div class="autor">${a.autorNome||'Afiliado'}</div></div>
-          <div class="conteudo">Quer impulsionar com ${a.quantidade} cliques — R$ ${a.valor}</div>
+          <div class="conteudo">Quer assinar o Viralize Pro — R$ ${a.valor}/mês</div>
           <div class="acoes" style="gap:10px;">
-            <button onclick="aprovarAnuncio('${d.id}')" style="background:#1e9e5e;color:#fff;padding:8px 14px;border-radius:8px;">✅ Confirmar pagamento e ativar</button>
-            <button onclick="recusarAnuncio('${d.id}')" style="background:#3a1e1e;color:#ff8080;padding:8px 14px;border-radius:8px;">✕ Recusar</button>
+            <button onclick="aprovarAssinatura('${d.id}')" style="background:#1e9e5e;color:#fff;padding:8px 14px;border-radius:8px;">✅ Confirmar pagamento e ativar</button>
+            <button onclick="recusarAssinatura('${d.id}')" style="background:#3a1e1e;color:#ff8080;padding:8px 14px;border-radius:8px;">✕ Recusar</button>
           </div>
         `;
         el.appendChild(div);
@@ -1562,79 +1694,117 @@ function carregarAdsviralPendentes(){
     });
 }
 
-async function aprovarAnuncio(anuncioId){
-  const doc = await db.collection('anuncios').doc(anuncioId).get();
+async function aprovarAssinatura(assinaturaId){
+  const doc = await db.collection('assinaturas').doc(assinaturaId).get();
   const a = doc.data();
-
-  await db.collection('posts').doc(a.postId).update({ anuncioAtivo: true });
-
-  if(a.alvo === 'catalogo' && a.itemCatalogoId){
-    await db.collection('usuarios').doc(a.userId).collection('catalogo').doc(a.itemCatalogoId).update({
-      cliques: firebase.firestore.FieldValue.increment(Number(a.quantidade) || 0)
-    });
-  } else {
-    // vídeo com link de compra próprio: soma direto nas visualizações do post
-    await db.collection('posts').doc(a.postId).update({
-      visualizacoes: firebase.firestore.FieldValue.increment(Number(a.quantidade) || 0)
-    });
-  }
-
-  await db.collection('anuncios').doc(anuncioId).update({ status: 'aprovado' });
-  criarNotificacao(a.userId, `🚀 Seu anúncio AdsViral (${a.quantidade} cliques) foi aprovado e já está ativo!`);
+  await db.collection('usuarios').doc(a.userId).update({ plano: 'pago' });
+  await db.collection('assinaturas').doc(assinaturaId).update({ status: 'aprovado' });
+  criarNotificacao(a.userId, '⭐ Sua assinatura do Viralize Pro foi confirmada! Catálogo ilimitado e loja sem marca liberados.');
 }
-function recusarAnuncio(anuncioId){
-  db.collection('anuncios').doc(anuncioId).get().then(doc => {
+function recusarAssinatura(assinaturaId){
+  db.collection('assinaturas').doc(assinaturaId).get().then(doc => {
     const a = doc.data();
-    db.collection('anuncios').doc(anuncioId).update({ status: 'recusado' });
-    if(a) criarNotificacao(a.userId, '❌ Seu pedido de anúncio AdsViral não foi confirmado. Fale com o suporte se já pagou.');
+    db.collection('assinaturas').doc(assinaturaId).update({ status: 'recusado' });
+    if(a) criarNotificacao(a.userId, '❌ Seu pedido de assinatura não foi confirmado. Fale com o suporte se já pagou.');
   });
 }
 
-/* ---------------- ADSVIRAL (lado do afiliado que compra) ---------------- */
-let postAdsviralAtual = null;
-async function abrirModalAdsviral(postId){
-  postAdsviralAtual = postId;
+function carregarAssinantesAtivos(){
+  db.collection('usuarios').where('plano','==','pago')
+    .onSnapshot(snap => {
+      const el = document.getElementById('listaAssinantesAtivos');
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhum assinante ativo ainda.</div>'; return; }
+      el.innerHTML = '';
+      snap.forEach(d => {
+        const u = d.data();
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <div class="top"><div class="autor">⭐ ${u.nome||'Afiliado'}</div></div>
+          <button onclick="cancelarAssinatura('${d.id}')" style="background:#3a1e1e;color:#ff8080;border:none;padding:8px 14px;border-radius:8px;font-size:12px;">Cancelar assinatura</button>
+        `;
+        el.appendChild(div);
+      });
+    });
+}
+function cancelarAssinatura(userId){
+  if(!confirm('Cancelar a assinatura Pro desse afiliado?')) return;
+  db.collection('usuarios').doc(userId).update({ plano: 'gratis' });
+  criarNotificacao(userId, 'ℹ️ Sua assinatura do Viralize Pro foi cancelada.');
+}
+
+/* ---------------- GALERIA DE CAPAS (admin) ---------------- */
+async function enviarImagemGaleria(){
+  const arquivo = document.getElementById('inputGaleriaCapa').files[0];
+  if(!arquivo){ aviso('Selecione uma imagem primeiro.'); return; }
+  const statusEl = document.getElementById('statusUploadGaleria');
+  try{
+    statusEl.textContent = 'Enviando...';
+    const url = await subirArquivoR2(arquivo);
+    await db.collection('galeriaCapas').add({ url, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+    statusEl.textContent = '';
+    document.getElementById('inputGaleriaCapa').value = '';
+    aviso('Imagem adicionada à galeria!');
+  }catch(err){
+    statusEl.textContent = '';
+    aviso('Erro: ' + err.message);
+  }
+}
+function carregarGaleriaAdmin(){
+  db.collection('galeriaCapas').orderBy('criadoEm','desc')
+    .onSnapshot(snap => {
+      const el = document.getElementById('listaGaleriaAdmin');
+      if(snap.empty){ el.innerHTML = '<div class="vazio" style="grid-column:1/-1;">Galeria vazia ainda.</div>'; return; }
+      el.innerHTML = '';
+      snap.forEach(d => {
+        const g = d.data();
+        const div = document.createElement('div');
+        div.style.cssText = 'position:relative;';
+        div.innerHTML = `
+          <img src="${g.url}" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;">
+          <button onclick="excluirImagemGaleria('${d.id}')" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:6px;padding:2px 6px;font-size:11px;">🗑️</button>
+        `;
+        el.appendChild(div);
+      });
+    });
+}
+function excluirImagemGaleria(id){
+  if(!confirm('Remover essa imagem da galeria?')) return;
+  db.collection('galeriaCapas').doc(id).delete();
+}
+
+/* ---------------- ASSINATURA VIRALIZE PRO (lado do afiliado) ---------------- */
+async function abrirModalAssinatura(){
+  fecharModalPerfil();
   const doc = await db.collection('config').doc('pagamento').get();
-  const c = doc.exists ? doc.data() : { chavePix:'(não configurada)', precoPacote:'10', quantidadePacote:'100' };
-  document.getElementById('infoAdsviral').innerHTML = `
-    <p style="font-size:14px;">📦 Pacote: <b>${c.quantidadePacote} cliques</b> por <b>R$ ${c.precoPacote}</b></p>
-    <p style="font-size:13px;color:var(--muted);">Cada clique é alguém acessando o link do seu produto de verdade. Envie o Pix pra chave abaixo e depois toque em "Já paguei". Sua solicitação vai pra aprovação do admin.</p>
+  const c = doc.exists ? doc.data() : { chavePix:'(não configurada)', precoAssinatura:'15' };
+  document.getElementById('infoAssinatura').innerHTML = `
+    <p style="font-size:14px;">⭐ Viralize Pro: <b>R$ ${c.precoAssinatura}/mês</b></p>
+    <p style="font-size:13px;color:var(--muted);">Catálogo ilimitado, loja sem a marca Viralize, capa personalizada (upload, link ou galeria) e edição de nome/descrição da loja. Envie o Pix e toque em "Já paguei" — sua solicitação vai pra aprovação do admin.</p>
     <div style="background:#1e222b;border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
       <span style="font-size:13px;word-break:break-all;">${c.chavePix}</span>
       <button onclick="navigator.clipboard.writeText('${c.chavePix}');aviso('Chave Pix copiada!')" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;">Copiar</button>
     </div>
   `;
-  document.getElementById('adsviralPrecoOculto').value = c.precoPacote;
-  document.getElementById('adsviralQtdOculta').value = c.quantidadePacote;
-  document.getElementById('modalAdsviral').style.display = 'flex';
+  window.precoAssinaturaAtual = c.precoAssinatura;
+  document.getElementById('modalAssinatura').style.display = 'flex';
 }
-function fecharModalAdsviral(){ document.getElementById('modalAdsviral').style.display = 'none'; }
+function fecharModalAssinatura(){ document.getElementById('modalAssinatura').style.display = 'none'; }
 
-async function confirmarPagamentoAdsviral(){
+async function confirmarPagamentoAssinatura(){
   const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
   const nomeAutor = doc.exists ? doc.data().nome : 'Afiliado';
-  const quantidade = document.getElementById('adsviralQtdOculta').value;
-  const valor = document.getElementById('adsviralPrecoOculto').value;
 
-  const postDoc = await db.collection('posts').doc(postAdsviralAtual).get();
-  const postData = postDoc.exists ? postDoc.data() : {};
-  const itemCatalogoId = postData.itemCatalogoId || null;
-  const alvo = itemCatalogoId ? 'catalogo' : 'post'; // produto = soma no catálogo; vídeo com link próprio = soma nas visualizações do post
-
-  await db.collection('anuncios').add({
-    postId: postAdsviralAtual,
-    itemCatalogoId,
-    alvo,
+  await db.collection('assinaturas').add({
     userId: usuarioAtual.uid,
     autorNome: nomeAutor,
-    quantidade,
-    valor,
+    valor: window.precoAssinaturaAtual || '15',
     status: 'pendente',
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   });
 
-  fecharModalAdsviral();
-  abrirChatSuporte(`Olá! Acabei de pagar o Pix do pacote de ${quantidade} cliques (R$ ${valor}). Pode confirmar? 🙏`);
+  fecharModalAssinatura();
+  abrirChatSuporte(`Olá! Acabei de pagar o Pix da assinatura Viralize Pro (R$ ${window.precoAssinaturaAtual || '15'}/mês). Pode confirmar? 🙏`);
 }
 
 function carregarAdminUsuarios(){
