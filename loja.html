@@ -57,7 +57,7 @@
 </head>
 <body>
 
-<div class="topo-marca">🔥 Loja verificada • Powered by Viralize</div>
+<div class="topo-marca" id="topoMarca">🔥 Loja verificada • Powered by Viralize</div>
 
 <div id="headerLoja"></div>
 
@@ -70,7 +70,7 @@
   <div class="grade" id="listaProdutos"></div>
 </main>
 
-<div class="banner-cta">
+<div class="banner-cta" id="bannerCta">
   <p>Quer ter uma loja como essa e vender pelos seus links de afiliado?</p>
   <a href="/">Criar minha conta grátis no Viralize</a>
 </div>
@@ -169,8 +169,15 @@ async function carregarLoja(){
   try{
     const doc = await db.collection('usuarios').doc(uid).get();
     const dados = doc.exists ? doc.data() : {};
-    const nome = dados.nome || 'Afiliado';
+    const nome = dados.nomeLoja || dados.nome || 'Afiliado';
+    const descricao = dados.descricaoLoja || 'Ofertas selecionadas • Compra direto com o afiliado';
     document.title = nome + ' — Loja no Viralize';
+
+    if(dados.plano === 'pago'){
+      document.getElementById('topoMarca').style.display = 'none';
+      document.getElementById('bannerCta').style.display = 'none';
+      document.body.style.paddingBottom = '20px';
+    }
 
     const headerEl = document.getElementById('headerLoja');
     const buscaEl = document.getElementById('buscaFake');
@@ -186,7 +193,7 @@ async function carregarLoja(){
         </div>
         <div class="header-com-capa-info">
           <h1>${escapeHtml(nome)}</h1>
-          <p>Ofertas selecionadas • Compra direto com o afiliado</p>
+          <p>${escapeHtml(descricao)}</p>
         </div>
       `;
       buscaEl.style.marginTop = '0';
@@ -196,7 +203,7 @@ async function carregarLoja(){
         <header>
           <div class="avatar-loja">${dados.fotoPerfil ? `<img src="${dados.fotoPerfil}">` : nome[0].toUpperCase()}</div>
           <h1>${escapeHtml(nome)}</h1>
-          <p>Ofertas selecionadas • Compra direto com o afiliado</p>
+          <p>${escapeHtml(descricao)}</p>
         </header>
       `;
       buscaEl.style.marginTop = '-24px';
