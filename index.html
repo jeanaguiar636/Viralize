@@ -39,8 +39,8 @@
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;}
   nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
   nav.tabs button.ativo{color:var(--accent);}
-  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalPerfil,#modalNotificacoes,#modalAssinatura,#modalGaleria{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
-  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalPerfil .box,#modalNotificacoes .box,#modalAssinatura .box,#modalGaleria .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
+  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalPerfil,#modalNotificacoes,#modalAssinatura,#modalGaleria,#modalPainel{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
+  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalPerfil .box,#modalNotificacoes .box,#modalAssinatura .box,#modalGaleria .box,#modalPainel .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
   #modalLogin .box{border-radius:16px;margin:auto;}
   label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;}
   input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0f1115;color:var(--text);font-size:14px;}
@@ -237,8 +237,18 @@
 <div id="modalAviso" style="position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:24px;">
   <div style="background:#ffffff;color:#1a1a1a;border-radius:18px;padding:26px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
     <div id="iconeAviso" style="font-size:38px;margin-bottom:10px;">🔥</div>
-    <p id="textoAviso" style="font-size:15.5px;line-height:1.5;margin:0 0 20px;color:#2b2b2b;font-weight:500;white-space:pre-wrap;word-break:break-word;"></p>
+    <p id="textoAviso" style="font-size:15.5px;line-height:1.5;margin:0 0 16px;color:#2b2b2b;font-weight:500;white-space:pre-wrap;word-break:break-word;"></p>
+    <button id="btnAvisoAcao" class="oculto" style="background:#1a1a1a;color:#fff;border:none;border-radius:12px;padding:12px 0;width:100%;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;"></button>
     <button onclick="fecharAviso()" style="background:linear-gradient(90deg,#ff5c35,#ffb347);color:#fff;border:none;border-radius:12px;padding:12px 0;width:100%;font-size:15px;font-weight:700;cursor:pointer;">OK</button>
+  </div>
+</div>
+
+<!-- Modal Meu Painel (métricas do afiliado) -->
+<div id="modalPainel">
+  <div class="box">
+    <button class="fechar" onclick="fecharModalPainel()">✕</button>
+    <h3 style="margin-top:0;">📊 Meu Painel</h3>
+    <div id="conteudoPainel"><div class="vazio">Carregando...</div></div>
   </div>
 </div>
 
@@ -304,6 +314,7 @@
     <button class="fechar" onclick="fecharModalMenu()">✕</button>
     <h3 style="margin-top:0;">Menu</h3>
     <div id="listaPaginasMenu"></div>
+    <button onclick="fecharModalMenu();abrirModalPainel()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">📊 Meu Painel</button>
     <button onclick="fecharModalMenu();abrirModalPerfil()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🏪 Editar minha loja</button>
     <button onclick="copiarLinkConvite()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">🎁 Convide e ganhe pontos</button>
     <button onclick="fecharModalMenu();abrirChatSuporte()" style="width:100%;text-align:left;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:14px;border-radius:10px;margin-top:8px;">💬 Falar com o suporte</button>
@@ -373,9 +384,17 @@ const ADMIN_EMAIL = "jeanaguiar636@gmail.com";
 const uidConvite = new URLSearchParams(window.location.search).get('convite');
 carregarCoresSalvas();
 
-function aviso(mensagem, icone){
+function aviso(mensagem, icone, textoAcao, acaoFn){
   document.getElementById('textoAviso').textContent = mensagem;
   document.getElementById('iconeAviso').textContent = icone || '🔥';
+  const btnAcao = document.getElementById('btnAvisoAcao');
+  if(textoAcao && acaoFn){
+    btnAcao.textContent = textoAcao;
+    btnAcao.classList.remove('oculto');
+    btnAcao.onclick = () => { fecharAviso(); acaoFn(); };
+  } else {
+    btnAcao.classList.add('oculto');
+  }
   document.getElementById('modalAviso').style.display = 'flex';
 }
 function fecharAviso(){
@@ -675,7 +694,7 @@ async function publicar(){
       post.itemCatalogoId = existente.docs[0].id;
     } else {
       if(!(await verificarLimiteCatalogo())){
-        aviso(`Seu plano grátis permite até ${LIMITE_CATALOGO_GRATIS} produtos no catálogo. Assine o Viralize Pro pra ter catálogo ilimitado! ⭐`);
+        aviso(`Seu plano grátis permite até ${LIMITE_CATALOGO_GRATIS} produtos no catálogo. Assine o Viralize Pro pra ter catálogo ilimitado! ⭐`, '⭐', 'Assinar Viralize Pro', abrirModalAssinatura);
         return;
       }
       const novoItem = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
@@ -1069,7 +1088,7 @@ async function confirmarCompartilhamento(){
 
   if(post.tipo === 'produto'){
     if(!(await verificarLimiteCatalogo())){
-      aviso(`Seu plano grátis permite até ${LIMITE_CATALOGO_GRATIS} produtos no catálogo. Assine o Viralize Pro pra ter catálogo ilimitado! ⭐`);
+      aviso(`Seu plano grátis permite até ${LIMITE_CATALOGO_GRATIS} produtos no catálogo. Assine o Viralize Pro pra ter catálogo ilimitado! ⭐`, '⭐', 'Assinar Viralize Pro', abrirModalAssinatura);
       return;
     }
     const novoItemRepost = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
@@ -1175,7 +1194,54 @@ function carregarRanking(){
     });
 }
 
-/* ---------------- PERFIL DA LOJA (foto, nome, descrição e capa) ---------------- */
+/* ---------------- MEU PAINEL (métricas do afiliado) ---------------- */
+async function abrirModalPainel(){
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
+  document.getElementById('conteudoPainel').innerHTML = '<div class="vazio">Carregando...</div>';
+  document.getElementById('modalPainel').style.display = 'flex';
+
+  const [doc, catalogo] = await Promise.all([
+    db.collection('usuarios').doc(usuarioAtual.uid).get(),
+    db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').get()
+  ]);
+  const dados = doc.data() || {};
+  const ehPro = dados.plano === 'pago';
+
+  let totalCliques = 0, ativos = 0;
+  catalogo.forEach(d => {
+    const p = d.data();
+    totalCliques += Number(p.cliques) || 0;
+    if(p.ativo !== false) ativos++;
+  });
+
+  document.getElementById('conteudoPainel').innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <div class="card" style="flex:1;min-width:100px;text-align:center;padding:12px;">
+        <div style="font-size:20px;font-weight:800;color:var(--accent2);">${totalCliques}</div>
+        <div style="font-size:11px;color:var(--muted);">Cliques totais</div>
+      </div>
+      <div class="card" style="flex:1;min-width:100px;text-align:center;padding:12px;">
+        <div style="font-size:20px;font-weight:800;color:var(--accent2);">${ativos}/${catalogo.size}</div>
+        <div style="font-size:11px;color:var(--muted);">Produtos ativos</div>
+      </div>
+      <div class="card" style="flex:1;min-width:100px;text-align:center;padding:12px;">
+        <div style="font-size:20px;font-weight:800;color:var(--accent2);">${dados.pontos||0}</div>
+        <div style="font-size:11px;color:var(--muted);">Pontos</div>
+      </div>
+      <div class="card" style="flex:1;min-width:100px;text-align:center;padding:12px;">
+        <div style="font-size:20px;font-weight:800;color:var(--accent2);">${dados.indicacoes||0}</div>
+        <div style="font-size:11px;color:var(--muted);">Indicações</div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px;background:${ehPro ? '#132a1c' : '#241a10'};border-color:${ehPro ? '#1e5c37' : '#4a3520'};">
+      <div style="font-size:14px;font-weight:700;color:${ehPro ? '#7ee08a' : 'var(--accent2)'};">${ehPro ? '⭐ Você é Viralize Pro' : '🔓 Plano grátis'}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">${ehPro ? 'Catálogo ilimitado e loja sem marca ativados.' : `Catálogo limitado a ${LIMITE_CATALOGO_GRATIS} produtos.`}</div>
+      ${!ehPro ? `<button class="btn-principal" style="margin-top:10px;" onclick="fecharModalPainel();abrirModalAssinatura()">Assinar Viralize Pro</button>` : ''}
+    </div>
+    <button onclick="fecharModalPainel();mudarAba('catalogo')" style="width:100%;background:#1e222b;border:1px solid var(--border);color:var(--text);padding:12px;border-radius:10px;font-size:14px;">🛍️ Ver e gerenciar meu catálogo</button>
+  `;
+}
+function fecharModalPainel(){ document.getElementById('modalPainel').style.display = 'none'; }
 let capaMarcadaParaRemover = false;
 let capaEscolhidaGaleria = null;
 let planoAtualUsuario = 'gratis';
@@ -1815,12 +1881,21 @@ function carregarAdminUsuarios(){
       el.innerHTML = '';
       snap.forEach(d => {
         const u = d.data();
+        const ehPro = u.plano === 'pago';
         el.innerHTML += `<div class="rank-item">
           <div class="avatar">${(u.nome||'A')[0].toUpperCase()}</div>
-          <div style="flex:1;">${u.nome||'Afiliado'}<br><small style="color:var(--muted)">${u.pontos||0} pontos</small></div>
+          <div style="flex:1;">${ehPro ? '⭐ ' : ''}${u.nome||'Afiliado'}<br><small style="color:var(--muted)">${u.pontos||0} pontos</small></div>
+          <button onclick="alternarProAdmin('${d.id}', ${ehPro})" style="background:${ehPro ? '#3a1e1e' : '#1e3a24'};color:${ehPro ? '#ff8080' : '#7ee08a'};border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">${ehPro ? 'Remover Pro' : 'Conceder Pro'}</button>
         </div>`;
       });
     });
+}
+function alternarProAdmin(userId, ehProAtualmente){
+  const novoPlano = ehProAtualmente ? 'gratis' : 'pago';
+  db.collection('usuarios').doc(userId).update({ plano: novoPlano });
+  criarNotificacao(userId, novoPlano === 'pago'
+    ? '⭐ O admin liberou o Viralize Pro pra você! Catálogo ilimitado e loja sem marca já estão ativos.'
+    : 'ℹ️ Seu acesso ao Viralize Pro foi removido pelo admin.');
 }
 </script>
 </body>
