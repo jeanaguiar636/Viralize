@@ -1285,8 +1285,19 @@ async function abrirModalPainel(){
 function fecharModalPainel(){ document.getElementById('modalPainel').style.display = 'none'; }
 
 /* ---------------- PÁGINA VIRAL (feed estilo reels + pontos por visualização) ---------------- */
-let observadorViral = null;
+let observadorViralScroll = null;
 let produtosJaVistosSessao = new Set();
+
+function verificarSlideCentral(scrollEl){
+  const rectContainer = scrollEl.getBoundingClientRect();
+  const centro = rectContainer.top + rectContainer.height / 2;
+  document.querySelectorAll('.viral-slide').forEach(el => {
+    const rect = el.getBoundingClientRect();
+    if(rect.top <= centro && rect.bottom >= centro){
+      registrarVisualizacaoViral(el.dataset.dono, el.dataset.id);
+    }
+  });
+}
 
 function logViral(msg){
   const el = document.getElementById('viralDebug');
@@ -1337,19 +1348,12 @@ async function carregarViral(){
       </div>
     `).join('');
 
-    if(observadorViral) observadorViral.disconnect();
-    observadorViral = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        logViral(`Slide dono=${entry.target.dataset.dono.slice(0,6)} ratio=${entry.intersectionRatio.toFixed(2)}`);
-        if(entry.intersectionRatio >= 0.65){
-          const el = entry.target;
-          registrarVisualizacaoViral(el.dataset.dono, el.dataset.id);
-        }
-      });
-    }, { root: scrollEl, threshold: [0, 0.25, 0.5, 0.65, 0.75, 1] });
+    if(observadorViralScroll) scrollEl.removeEventListener('scroll', observadorViralScroll);
+    observadorViralScroll = () => verificarSlideCentral(scrollEl);
+    scrollEl.addEventListener('scroll', observadorViralScroll, { passive: true });
 
-    document.querySelectorAll('.viral-slide').forEach(el => observadorViral.observe(el));
-    logViral(`Observando ${document.querySelectorAll('.viral-slide').length} slides. Seu uid: ${usuarioAtual ? usuarioAtual.uid.slice(0,6) : 'NULO'}`);
+    logViral(`${document.querySelectorAll('.viral-slide').length} slides prontos. Seu uid: ${usuarioAtual ? usuarioAtual.uid.slice(0,6) : 'NULO'}`);
+    setTimeout(() => verificarSlideCentral(scrollEl), 400); // checa o primeiro produto assim que abre, sem precisar rolar
   }catch(err){
     console.error(err);
     logViral('ERRO: ' + (err.message || String(err)));
