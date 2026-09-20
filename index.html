@@ -1285,6 +1285,17 @@ async function abrirModalPerfil(){
     <textarea id="inputDescricaoLoja" maxlength="100" oninput="atualizarContador('inputDescricaoLoja','contadorDescricaoLoja',100)" placeholder="Ex: Ofertas selecionadas todos os dias 🔥" style="min-height:60px;"></textarea>
     <div style="text-align:right;font-size:11px;color:var(--muted);" id="contadorDescricaoLoja">0/100</div>
 
+    <label style="margin-top:16px;">Cor da loja</label>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Escolha uma cor e ela substitui o laranja em toda a sua loja pública.</p>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <input type="color" id="inputCorLoja" style="width:48px;height:40px;border:1px solid var(--border);border-radius:8px;background:none;padding:2px;cursor:pointer;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${['#ee4d2d','#e91e63','#9c27b0','#3f51b5','#009688','#4caf50','#ff9800','#607d8b'].map(c =>
+          `<button type="button" onclick="document.getElementById('inputCorLoja').value='${c}'" style="width:24px;height:24px;border-radius:50%;background:${c};border:1px solid var(--border);cursor:pointer;"></button>`
+        ).join('')}
+      </div>
+    </div>
+
     <label style="margin-top:16px;">Capa da loja</label>
     <div style="display:flex;gap:6px;margin-bottom:8px;">
       <button type="button" onclick="mudarModoCapa('upload')" id="btnModoUpload" class="modo-capa-ativo" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--accent);color:#fff;font-size:12px;">📤 Upload</button>
@@ -1303,6 +1314,7 @@ async function abrirModalPerfil(){
 
   document.getElementById('inputNomeLoja').value = dados.nomeLoja || dados.nome || '';
   document.getElementById('inputDescricaoLoja').value = dados.descricaoLoja || '';
+  document.getElementById('inputCorLoja').value = dados.corLoja || '#ee4d2d';
   atualizarContador('inputNomeLoja','contadorNomeLoja',40);
   atualizarContador('inputDescricaoLoja','contadorDescricaoLoja',100);
 
@@ -1369,6 +1381,7 @@ async function salvarPerfil(){
   if(planoAtualUsuario === 'pago'){
     atualizacoes.nomeLoja = document.getElementById('inputNomeLoja').value.trim().slice(0,40);
     atualizacoes.descricaoLoja = document.getElementById('inputDescricaoLoja').value.trim().slice(0,100);
+    atualizacoes.corLoja = document.getElementById('inputCorLoja').value;
   }
 
   try{
