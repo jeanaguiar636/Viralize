@@ -1482,6 +1482,21 @@ function registrarCliqueViral(donoId, produtoId){
 let capaMarcadaParaRemover = false;
 let capaEscolhidaGaleria = null;
 let planoAtualUsuario = 'gratis';
+let estiloLojaAtual = 'grade';
+
+function mudarEstiloLoja(estilo){
+  estiloLojaAtual = estilo;
+  marcarBotaoEstiloAtivo();
+}
+function marcarBotaoEstiloAtivo(){
+  const btnGrade = document.getElementById('btnEstiloGrade');
+  const btnReels = document.getElementById('btnEstiloReels');
+  if(!btnGrade || !btnReels) return;
+  btnGrade.style.background = estiloLojaAtual === 'grade' ? 'var(--accent)' : '#1e222b';
+  btnGrade.style.color = estiloLojaAtual === 'grade' ? '#fff' : 'var(--muted)';
+  btnReels.style.background = estiloLojaAtual === 'reels' ? 'var(--accent)' : '#1e222b';
+  btnReels.style.color = estiloLojaAtual === 'reels' ? '#fff' : 'var(--muted)';
+}
 
 async function abrirModalPerfil(){
   if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
@@ -1501,20 +1516,36 @@ async function abrirModalPerfil(){
 
   if(planoAtualUsuario !== 'pago'){
     bloco.innerHTML = `
-      <div class="card" style="margin-top:16px;background:#241a10;border-color:#4a3520;">
+      <label style="margin-top:16px;">Estilo da loja pública</label>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Escolha como sua loja aparece pra quem visita o link.</p>
+      <div style="display:flex;gap:6px;margin-bottom:14px;">
+        <button type="button" onclick="mudarEstiloLoja('grade')" id="btnEstiloGrade" style="flex:1;padding:10px 6px;border-radius:8px;border:1px solid var(--border);font-size:12px;">🛍️ Catálogo (grade)</button>
+        <button type="button" onclick="mudarEstiloLoja('reels')" id="btnEstiloReels" style="flex:1;padding:10px 6px;border-radius:8px;border:1px solid var(--border);font-size:12px;">🎞️ Página única (rolagem)</button>
+      </div>
+      <p style="font-size:11px;color:var(--accent2);margin:-8px 0 12px;">No plano grátis, o estilo "Página única" mostra só 1 produto. Assine o Pro pra mostrar o catálogo inteiro nesse estilo também.</p>
+      <div class="card" style="margin-top:0;background:#241a10;border-color:#4a3520;">
         <div style="font-size:14px;font-weight:700;color:var(--accent2);margin-bottom:6px;">⭐ Recursos do Viralize Pro</div>
         <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Assine pra editar o nome e a descrição da sua loja, escolher uma capa (upload, link ou galeria) e remover a marca Viralize.</p>
         <button class="btn-principal" style="margin-top:0;" onclick="abrirModalAssinatura()">Assinar Viralize Pro</button>
       </div>
       <div id="statusUploadPerfil2" style="font-size:12px;color:var(--muted);margin-top:10px;"></div>
-      <button class="btn-principal" onclick="salvarPerfil()">💾 Salvar foto de perfil</button>
+      <button class="btn-principal" onclick="salvarPerfil()">💾 Salvar</button>
     `;
+    estiloLojaAtual = dados.estiloLoja === 'reels' ? 'reels' : 'grade';
+    marcarBotaoEstiloAtivo();
     document.getElementById('modalPerfil').style.display = 'flex';
     return;
   }
 
   bloco.innerHTML = `
-    <label style="margin-top:16px;">Nome da loja</label>
+    <label style="margin-top:16px;">Estilo da loja pública</label>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Escolha como sua loja aparece pra quem visita o link.</p>
+    <div style="display:flex;gap:6px;margin-bottom:16px;">
+      <button type="button" onclick="mudarEstiloLoja('grade')" id="btnEstiloGrade" style="flex:1;padding:10px 6px;border-radius:8px;border:1px solid var(--border);font-size:12px;">🛍️ Catálogo (grade)</button>
+      <button type="button" onclick="mudarEstiloLoja('reels')" id="btnEstiloReels" style="flex:1;padding:10px 6px;border-radius:8px;border:1px solid var(--border);font-size:12px;">🎞️ Página única (rolagem)</button>
+    </div>
+
+    <label style="margin-top:12px;">Nome da loja</label>
     <input type="text" id="inputNomeLoja" maxlength="40" oninput="atualizarContador('inputNomeLoja','contadorNomeLoja',40)" placeholder="Ex: Loja da Maria">
     <div style="text-align:right;font-size:11px;color:var(--muted);" id="contadorNomeLoja">0/40</div>
 
@@ -1552,6 +1583,8 @@ async function abrirModalPerfil(){
   document.getElementById('inputNomeLoja').value = dados.nomeLoja || dados.nome || '';
   document.getElementById('inputDescricaoLoja').value = dados.descricaoLoja || '';
   document.getElementById('inputCorLoja').value = dados.corLoja || '#ee4d2d';
+  estiloLojaAtual = dados.estiloLoja === 'reels' ? 'reels' : 'grade';
+  marcarBotaoEstiloAtivo();
   atualizarContador('inputNomeLoja','contadorNomeLoja',40);
   atualizarContador('inputDescricaoLoja','contadorDescricaoLoja',100);
 
@@ -1613,7 +1646,7 @@ function removerCapaPerfil(){
 async function salvarPerfil(){
   const statusEl = document.getElementById('statusUploadPerfil2') || document.getElementById('statusUploadPerfil');
   const arquivoPerfil = document.getElementById('inputFotoPerfil').files[0];
-  const atualizacoes = {};
+  const atualizacoes = { estiloLoja: estiloLojaAtual };
 
   if(planoAtualUsuario === 'pago'){
     atualizacoes.nomeLoja = document.getElementById('inputNomeLoja').value.trim().slice(0,40);
