@@ -773,6 +773,7 @@ function renderEmbed(post, postId){
         ${post.produtoPlataforma ? `<div style="font-size:10px;color:var(--accent2);font-weight:700;margin-bottom:2px;">${post.produtoPlataforma}</div>` : ''}
         <div>${post.produtoNome}</div>
         <div class="preco">R$ ${post.produtoPreco || '--'}</div>
+        <div id="visViral-${postId}" style="font-size:10px;color:var(--muted);margin-top:2px;"></div>
       </div>
     </div>`;
   }
@@ -1041,6 +1042,18 @@ function carregarFeed(){
           </div>
         `;
         el.appendChild(card);
+
+        if(p.tipo === 'produto' && p.itemCatalogoId && p.autorId){
+          db.collection('usuarios').doc(p.autorId).collection('catalogo').doc(p.itemCatalogoId).get()
+            .then(itemDoc => {
+              const spanEl = document.getElementById('visViral-' + d.id);
+              if(spanEl && itemDoc.exists){
+                const item = itemDoc.data();
+                spanEl.textContent = `👀 ${item.visualizacoesViral||0} no Viral · 🖱️ ${item.cliques||0} cliques`;
+              }
+            })
+            .catch(() => {});
+        }
       });
     });
 }
