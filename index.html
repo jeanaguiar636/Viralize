@@ -54,7 +54,7 @@
   .viral-selo{display:inline-block;background:var(--accent);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;}
   .viral-nome{font-size:18px;font-weight:800;line-height:1.3;margin-bottom:6px;text-shadow:0 2px 6px rgba(0,0,0,.6);}
   .viral-preco{font-size:22px;font-weight:800;color:var(--accent2);margin-bottom:14px;text-shadow:0 2px 6px rgba(0,0,0,.6);}
-  .viral-btn{display:inline-block;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:24px;font-size:14px;}
+  .viral-btn{display:inline-block;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;text-decoration:none;font-weight:700;padding:12px 16px;border-radius:24px;font-size:13px;flex:1;text-align:center;border:none;cursor:pointer;white-space:nowrap;}
   .viral-fechar{position:fixed;top:16px;right:16px;z-index:6;background:rgba(0,0,0,.5);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;}
   .viral-ponto-toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;font-weight:700;font-size:13px;padding:8px 18px;border-radius:20px;z-index:9;box-shadow:0 4px 14px rgba(0,0,0,.4);opacity:0;transition:opacity .3s;pointer-events:none;}
   .viral-ponto-toast.mostrar{opacity:1;}
@@ -255,7 +255,7 @@
     <div id="previewProdutoCompartilhar" style="margin-bottom:10px;"></div>
     <label>Seu link de afiliado</label>
     <input type="text" id="meuLinkAfiliado" placeholder="https://shopee.com.br/... (ou outro)">
-    <button class="btn-principal" onclick="confirmarCompartilhamento()">Compartilhar 🚀</button>
+    <button class="btn-principal" onclick="confirmarAcaoCompartilhar()">Compartilhar 🚀</button>
   </div>
 </div>
 
@@ -1245,9 +1245,15 @@ async function confirmarCompartilhamento(){
   aviso('Compartilhado! Já apareceu no seu feed, com o seu link. 🚀');
 }
 
+function confirmarAcaoCompartilhar(){
+  if(revendaPendenteViral) return confirmarRevendaViral();
+  return confirmarCompartilhamento();
+}
+
 function fecharModalCompartilhar(){
   document.getElementById('modalCompartilhar').style.display = 'none';
   postPendenteCompartilhar = null;
+  revendaPendenteViral = null;
 }
 
 async function compartilharLinkDireto(postId){
@@ -1349,6 +1355,8 @@ function fecharModalPainel(){ document.getElementById('modalPainel').style.displ
 /* ---------------- PÁGINA VIRAL (feed estilo reels + pontos por visualização) ---------------- */
 let observadorViralScroll = null;
 let produtosJaVistosSessao = new Set();
+let produtosViralAtuais = [];
+let revendaPendenteViral = null;
 
 function verificarSlideCentral(scrollEl){
   const rectContainer = scrollEl.getBoundingClientRect();
@@ -1397,6 +1405,8 @@ async function carregarViral(){
       return;
     }
 
+    produtosViralAtuais = produtos;
+
     scrollEl.innerHTML = produtos.map(p => `
       <div class="viral-slide" data-id="${p.id}" data-dono="${p.donoId}">
         <img src="${p.img}" loading="lazy">
@@ -1404,7 +1414,10 @@ async function carregarViral(){
           <div class="viral-selo">${p.plataforma || 'Oferta'}</div>
           <div class="viral-nome">${escapeHtml(p.nome || 'Produto')}</div>
           <div class="viral-preco">R$ ${p.preco || '--'}</div>
-          <a class="viral-btn" href="${p.link}" target="_blank" rel="noopener" onclick="event.stopPropagation();registrarCliqueViral('${p.donoId}','${p.id}')">🛒 Comprar agora</a>
+          <div style="display:flex;gap:8px;">
+            <a class="viral-btn" href="${p.link}" target="_blank" rel="noopener" onclick="event.stopPropagation();registrarCliqueViral('${p.donoId}','${p.id}')">🛒 Comprar agora</a>
+            ${p.donoId !== (usuarioAtual ? usuarioAtual.uid : null) ? `<button type="button" class="viral-btn" style="background:rgba(255,255,255,.15);" onclick="event.stopPropagation();abrirRevendaViral('${p.donoId}','${p.id}')">🔁 Revender</button>` : ''}
+          </div>
         </div>
       </div>
     `).join('');
@@ -1469,6 +1482,85 @@ function mostrarToastPonto(){
   const toast = document.getElementById('viralPontoToast');
   toast.classList.add('mostrar');
   setTimeout(() => toast.classList.remove('mostrar'), 1400);
+}
+
+async function abrirRevendaViral(donoId, produtoId){
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
+  if(donoId === usuarioAtual.uid){ aviso('Esse produto já é seu! Use "Comprar agora" pra levar tráfego direto.'); return; }
+
+  const produto = produtosViralAtuais.find(p => p.donoId === donoId && p.id === produtoId);
+  if(!produto) return;
+
+  const donoDoc = await db.collection('usuarios').doc(donoId).get();
+  const nomeDono = donoDoc.exists ? (donoDoc.data().nomeLoja || donoDoc.data().nome || 'um afiliado') : 'um afiliado';
+
+  revendaPendenteViral = { donoId, produto, nomeDono };
+
+  document.getElementById('tituloModalCompartilhar').textContent = 'Revender com meu link';
+  document.getElementById('textoModalCompartilhar').textContent = `Cole seu link de afiliado desse produto de ${nomeDono}. Ele vai pro seu catálogo e feed, com o seu link.`;
+  document.getElementById('previewProdutoCompartilhar').innerHTML = `
+    <div class="produto-card">
+      <img src="${produto.img || 'https://via.placeholder.com/70'}">
+      <div class="produto-info">
+        <div>${escapeHtml(produto.nome || 'Produto')}</div>
+        <div class="preco">R$ ${produto.preco || '--'}</div>
+      </div>
+    </div>`;
+  document.getElementById('meuLinkAfiliado').value = '';
+  document.getElementById('modalCompartilhar').style.display = 'flex';
+}
+
+async function confirmarRevendaViral(){
+  const link = document.getElementById('meuLinkAfiliado').value.trim();
+  if(!link){ aviso('Cole seu link de afiliado.'); return; }
+  if(!revendaPendenteViral) return;
+  if(!(await verificarLimiteDiario())){
+    aviso(`Você atingiu o limite de ${LIMITE_POSTS_DIA} publicações hoje. Volte amanhã pra postar mais! 🌅`);
+    return;
+  }
+  if(!(await verificarLimiteCatalogo())){
+    aviso(`Seu plano grátis permite até ${LIMITE_CATALOGO_GRATIS} produtos no catálogo. Assine o Viralize Pro pra ter catálogo ilimitado! ⭐`, '⭐', 'Assinar Viralize Pro', abrirModalAssinatura);
+    return;
+  }
+
+  const { produto, donoId, nomeDono } = revendaPendenteViral;
+  const docUsuario = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+  const nomeAutor = docUsuario.exists ? docUsuario.data().nome : 'Afiliado';
+
+  const novoItem = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
+    nome: produto.nome, preco: produto.preco, img: produto.img, link: link,
+    plataforma: produto.plataforma, ativo: true,
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  await db.collection('posts').add({
+    tipo: 'produto',
+    texto: `🔁 Repost de ${nomeDono}`,
+    autorId: usuarioAtual.uid,
+    autorNome: nomeAutor,
+    produtoNome: produto.nome,
+    produtoPreco: produto.preco,
+    produtoImg: produto.img,
+    produtoLink: link,
+    produtoPlataforma: produto.plataforma,
+    itemCatalogoId: novoItem.id,
+    origemAutorNome: nomeDono,
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    compartilhamentos: 0,
+    visualizacoes: 0
+  });
+
+  await db.collection('usuarios').doc(usuarioAtual.uid).update({
+    pontos: firebase.firestore.FieldValue.increment(15)
+  }).catch(()=>{});
+
+  if(donoId !== usuarioAtual.uid){
+    criarNotificacao(donoId, `🔁 ${nomeAutor} revendeu seu produto "${produto.nome}"!`);
+  }
+  registrarPostDoDia();
+
+  fecharModalCompartilhar();
+  aviso('Produto adicionado ao seu catálogo com seu link! Já apareceu no seu feed. 🚀');
 }
 
 function registrarCliqueViral(donoId, produtoId){
