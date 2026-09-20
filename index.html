@@ -97,6 +97,7 @@
   <div id="viralView" class="oculto">
     <button class="viral-fechar" onclick="fecharViral()">✕</button>
     <div id="viralPontoToast" class="viral-ponto-toast">+1 ponto! 🔥</div>
+    <div id="viralDebug" style="position:fixed;top:60px;left:8px;right:8px;z-index:8;background:rgba(0,0,0,.75);color:#0f0;font-size:10px;padding:8px;border-radius:8px;max-height:120px;overflow-y:auto;font-family:monospace;"></div>
     <div class="viral-scroll" id="viralScroll"></div>
   </div>
   <div id="adminView" class="oculto">
@@ -1287,8 +1288,19 @@ function fecharModalPainel(){ document.getElementById('modalPainel').style.displ
 let observadorViral = null;
 let produtosJaVistosSessao = new Set();
 
+function logViral(msg){
+  const el = document.getElementById('viralDebug');
+  if(!el) return;
+  const linha = document.createElement('div');
+  linha.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+  el.appendChild(linha);
+  el.scrollTop = el.scrollHeight;
+}
+
 async function carregarViral(){
   const scrollEl = document.getElementById('viralScroll');
+  document.getElementById('viralDebug').innerHTML = '';
+  logViral('Carregando produtos...');
   scrollEl.innerHTML = '<div class="vazio" style="color:#fff;padding-top:40vh;">Carregando produtos...</div>';
 
   try{
@@ -1300,6 +1312,7 @@ async function carregarViral(){
       if(!p.img) return;
       produtos.push({ id: doc.id, donoId: doc.ref.parent.parent.id, ...p });
     });
+    logViral(`${snap.size} itens no catálogo total, ${produtos.length} com foto e ativos.`);
 
     // embaralha pra parecer um feed tipo reels, diferente a cada visita
     for(let i = produtos.length - 1; i > 0; i--){
@@ -1327,43 +1340,55 @@ async function carregarViral(){
     if(observadorViral) observadorViral.disconnect();
     observadorViral = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
+        logViral(`Slide dono=${entry.target.dataset.dono.slice(0,6)} ratio=${entry.intersectionRatio.toFixed(2)}`);
         if(entry.intersectionRatio >= 0.65){
           const el = entry.target;
           registrarVisualizacaoViral(el.dataset.dono, el.dataset.id);
         }
       });
-    }, { root: scrollEl, threshold: [0, 0.65, 1] });
+    }, { root: scrollEl, threshold: [0, 0.25, 0.5, 0.65, 0.75, 1] });
 
     document.querySelectorAll('.viral-slide').forEach(el => observadorViral.observe(el));
+    logViral(`Observando ${document.querySelectorAll('.viral-slide').length} slides. Seu uid: ${usuarioAtual ? usuarioAtual.uid.slice(0,6) : 'NULO'}`);
   }catch(err){
     console.error(err);
+    logViral('ERRO: ' + (err.message || String(err)));
     scrollEl.innerHTML = `<div class="vazio" style="color:#fff;padding-top:30vh;padding-left:16px;padding-right:16px;">Erro ao carregar.<br><br><span style="font-size:11px;color:#ff8080;word-break:break-word;">${escapeHtml(err.message || String(err))}</span><br><br><button onclick="carregarViral()" style="background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:20px;">Tentar de novo</button></div>`;
   }
 }
 
 async function registrarVisualizacaoViral(donoId, produtoId){
-  if(!usuarioAtual) return;
+  if(!usuarioAtual){ logViral('Sem usuarioAtual, abortando.'); return; }
   const chave = donoId + '_' + produtoId;
-  if(produtosJaVistosSessao.has(chave)) return; // já processado nessa sessão, evita leituras repetidas
+  if(produtosJaVistosSessao.has(chave)){ logViral('Já processado nessa sessão: ' + chave.slice(0,12)); return; }
   produtosJaVistosSessao.add(chave);
 
   const ehProprioProduto = donoId === usuarioAtual.uid;
+  logViral(`Registrando visualização. Próprio produto? ${ehProprioProduto}`);
 
-  const refVisto = db.collection('usuarios').doc(usuarioAtual.uid).collection('visualizacoesViral').doc(chave);
-  const jaVisto = await refVisto.get();
-  if(jaVisto.exists) return; // só conta na primeira vez que vê aquele produto específico
+  try{
+    const refVisto = db.collection('usuarios').doc(usuarioAtual.uid).collection('visualizacoesViral').doc(chave);
+    const jaVisto = await refVisto.get();
+    if(jaVisto.exists){ logViral('Já tinha visto esse produto antes.'); return; }
 
-  await refVisto.set({ produtoId, donoId, vistoEm: firebase.firestore.FieldValue.serverTimestamp() });
+    await refVisto.set({ produtoId, donoId, vistoEm: firebase.firestore.FieldValue.serverTimestamp() });
+    logViral('Gravado em visualizacoesViral ✅');
 
-  // a visualização do produto sempre conta (mesmo sendo o próprio produto, pra dar métrica real ao afiliado)
-  registrarVisualizacaoProdutoDono(donoId, produtoId);
+    // a visualização do produto sempre conta (mesmo sendo o próprio produto, pra dar métrica real ao afiliado)
+    registrarVisualizacaoProdutoDono(donoId, produtoId);
 
-  // mas o PONTO só é dado se não for o próprio produto, pra evitar autofarmar pontos vendo o que você mesmo postou
-  if(!ehProprioProduto){
-    await db.collection('usuarios').doc(usuarioAtual.uid).update({
-      pontos: firebase.firestore.FieldValue.increment(1)
-    });
-    mostrarToastPonto();
+    // mas o PONTO só é dado se não for o próprio produto, pra evitar autofarmar pontos vendo o que você mesmo postou
+    if(!ehProprioProduto){
+      await db.collection('usuarios').doc(usuarioAtual.uid).update({
+        pontos: firebase.firestore.FieldValue.increment(1)
+      });
+      logViral('Ponto dado! ✅');
+      mostrarToastPonto();
+    } else {
+      logViral('Sem ponto (produto é seu), mas visualização contada.');
+    }
+  }catch(err){
+    logViral('ERRO ao registrar: ' + (err.message || String(err)));
   }
 }
 
