@@ -39,6 +39,19 @@
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;}
   nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
   nav.tabs button.ativo{color:var(--accent);}
+
+  #viralView{position:fixed;top:0;left:0;right:0;bottom:0;z-index:5;background:#000;}
+  .viral-scroll{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;}
+  .viral-slide{height:100%;width:100%;scroll-snap-align:start;position:relative;display:flex;align-items:flex-end;background:#000;}
+  .viral-slide img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55;}
+  .viral-info{position:relative;z-index:1;padding:20px 16px 110px;color:#fff;width:100%;}
+  .viral-selo{display:inline-block;background:var(--accent);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;}
+  .viral-nome{font-size:18px;font-weight:800;line-height:1.3;margin-bottom:6px;text-shadow:0 2px 6px rgba(0,0,0,.6);}
+  .viral-preco{font-size:22px;font-weight:800;color:var(--accent2);margin-bottom:14px;text-shadow:0 2px 6px rgba(0,0,0,.6);}
+  .viral-btn{display:inline-block;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:24px;font-size:14px;}
+  .viral-fechar{position:fixed;top:16px;right:16px;z-index:6;background:rgba(0,0,0,.5);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;}
+  .viral-ponto-toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;font-weight:700;font-size:13px;padding:8px 18px;border-radius:20px;z-index:7;box-shadow:0 4px 14px rgba(0,0,0,.4);opacity:0;transition:opacity .3s;pointer-events:none;}
+  .viral-ponto-toast.mostrar{opacity:1;}
   #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalPerfil,#modalNotificacoes,#modalAssinatura,#modalGaleria,#modalPainel{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
   #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalPerfil .box,#modalNotificacoes .box,#modalAssinatura .box,#modalGaleria .box,#modalPainel .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
   #modalLogin .box{border-radius:16px;margin:auto;}
@@ -80,6 +93,11 @@
       <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Cole esse link na bio do seu TikTok/Instagram/Shopee.</p>
     </div>
     <div id="catalogoLista"></div>
+  </div>
+  <div id="viralView" class="oculto">
+    <button class="viral-fechar" onclick="fecharViral()">✕</button>
+    <div id="viralPontoToast" class="viral-ponto-toast">+1 ponto! 🔥</div>
+    <div class="viral-scroll" id="viralScroll"></div>
   </div>
   <div id="adminView" class="oculto">
     <h3 style="margin-top:16px;">⚙️ Painel do Administrador</h3>
@@ -154,6 +172,7 @@
   <button id="tabFeed" class="ativo" onclick="mudarAba('feed')">📱<br>Feed</button>
   <button id="tabRanking" onclick="mudarAba('ranking')">🏆<br>Ranking</button>
   <button id="tabCatalogo" onclick="mudarAba('catalogo')">🛍️<br>Catálogo</button>
+  <button id="tabViral" onclick="mudarAba('viral')">🔥<br>Viral</button>
   <button id="tabAdmin" class="oculto" onclick="mudarAba('admin')">⚙️<br>Admin</button>
 </nav>
 
@@ -493,12 +512,16 @@ function mudarAba(aba){
   document.getElementById('feedView').classList.toggle('oculto', aba!=='feed');
   document.getElementById('rankingView').classList.toggle('oculto', aba!=='ranking');
   document.getElementById('catalogoView').classList.toggle('oculto', aba!=='catalogo');
+  document.getElementById('viralView').classList.toggle('oculto', aba!=='viral');
   document.getElementById('adminView').classList.toggle('oculto', aba!=='admin');
   document.getElementById('tabFeed').classList.toggle('ativo', aba==='feed');
   document.getElementById('tabRanking').classList.toggle('ativo', aba==='ranking');
   document.getElementById('tabCatalogo').classList.toggle('ativo', aba==='catalogo');
+  document.getElementById('tabViral').classList.toggle('ativo', aba==='viral');
   document.getElementById('tabAdmin').classList.toggle('ativo', aba==='admin');
+  if(aba === 'viral') carregarViral();
 }
+function fecharViral(){ mudarAba('feed'); }
 
 function mudarSubAbaAdmin(sub){
   document.getElementById('adminAprovacoes').classList.toggle('oculto', sub!=='aprovacoes');
@@ -1207,10 +1230,11 @@ async function abrirModalPainel(){
   const dados = doc.data() || {};
   const ehPro = dados.plano === 'pago';
 
-  let totalCliques = 0, ativos = 0;
+  let totalCliques = 0, totalVisualizacoesViral = 0, ativos = 0;
   catalogo.forEach(d => {
     const p = d.data();
     totalCliques += Number(p.cliques) || 0;
+    totalVisualizacoesViral += Number(p.visualizacoesViral) || 0;
     if(p.ativo !== false) ativos++;
   });
 
@@ -1219,6 +1243,10 @@ async function abrirModalPainel(){
       <div class="card" style="flex:1;min-width:100px;text-align:center;padding:12px;">
         <div style="font-size:20px;font-weight:800;color:var(--accent2);">${totalCliques}</div>
         <div style="font-size:11px;color:var(--muted);">Cliques totais</div>
+      </div>
+      <div class="card" style="flex:1;min-width:100px;text-align:center;padding:12px;">
+        <div style="font-size:20px;font-weight:800;color:var(--accent2);">${totalVisualizacoesViral}</div>
+        <div style="font-size:11px;color:var(--muted);">Visualizações no Viral</div>
       </div>
       <div class="card" style="flex:1;min-width:100px;text-align:center;padding:12px;">
         <div style="font-size:20px;font-weight:800;color:var(--accent2);">${ativos}/${catalogo.size}</div>
@@ -1242,6 +1270,107 @@ async function abrirModalPainel(){
   `;
 }
 function fecharModalPainel(){ document.getElementById('modalPainel').style.display = 'none'; }
+
+/* ---------------- PÁGINA VIRAL (feed estilo reels + pontos por visualização) ---------------- */
+let observadorViral = null;
+let produtosJaVistosSessao = new Set();
+
+async function carregarViral(){
+  const scrollEl = document.getElementById('viralScroll');
+  scrollEl.innerHTML = '<div class="vazio" style="color:#fff;padding-top:40vh;">Carregando produtos...</div>';
+
+  try{
+    const snap = await db.collectionGroup('catalogo').limit(300).get();
+    let produtos = [];
+    snap.forEach(doc => {
+      const p = doc.data();
+      if(p.ativo === false) return;
+      if(!p.img) return;
+      produtos.push({ id: doc.id, donoId: doc.ref.parent.parent.id, ...p });
+    });
+
+    // embaralha pra parecer um feed tipo reels, diferente a cada visita
+    for(let i = produtos.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [produtos[i], produtos[j]] = [produtos[j], produtos[i]];
+    }
+
+    if(produtos.length === 0){
+      scrollEl.innerHTML = '<div class="vazio" style="color:#fff;padding-top:40vh;">Nenhum produto disponível ainda.</div>';
+      return;
+    }
+
+    scrollEl.innerHTML = produtos.map(p => `
+      <div class="viral-slide" data-id="${p.id}" data-dono="${p.donoId}">
+        <img src="${p.img}" loading="lazy">
+        <div class="viral-info">
+          <div class="viral-selo">${p.plataforma || 'Oferta'}</div>
+          <div class="viral-nome">${escapeHtml(p.nome || 'Produto')}</div>
+          <div class="viral-preco">R$ ${p.preco || '--'}</div>
+          <a class="viral-btn" href="${p.link}" target="_blank" rel="noopener" onclick="event.stopPropagation();registrarCliqueViral('${p.donoId}','${p.id}')">🛒 Comprar agora</a>
+        </div>
+      </div>
+    `).join('');
+
+    if(observadorViral) observadorViral.disconnect();
+    observadorViral = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.intersectionRatio >= 0.65){
+          const el = entry.target;
+          registrarVisualizacaoViral(el.dataset.dono, el.dataset.id);
+        }
+      });
+    }, { root: scrollEl, threshold: [0, 0.65, 1] });
+
+    document.querySelectorAll('.viral-slide').forEach(el => observadorViral.observe(el));
+  }catch(err){
+    console.error(err);
+    scrollEl.innerHTML = '<div class="vazio" style="color:#fff;padding-top:40vh;">Erro ao carregar. Tente novamente.</div>';
+  }
+}
+
+async function registrarVisualizacaoViral(donoId, produtoId){
+  if(!usuarioAtual) return;
+  const chave = donoId + '_' + produtoId;
+  if(produtosJaVistosSessao.has(chave)) return; // já processado nessa sessão, evita leituras repetidas
+  produtosJaVistosSessao.add(chave);
+
+  if(donoId === usuarioAtual.uid) return; // não ganha ponto vendo o próprio produto
+
+  const refVisto = db.collection('usuarios').doc(usuarioAtual.uid).collection('visualizacoesViral').doc(chave);
+  const jaVisto = await refVisto.get();
+  if(jaVisto.exists) return; // só ganha ponto na primeira vez que vê aquele produto específico
+
+  await refVisto.set({ produtoId, donoId, vistoEm: firebase.firestore.FieldValue.serverTimestamp() });
+  await db.collection('usuarios').doc(usuarioAtual.uid).update({
+    pontos: firebase.firestore.FieldValue.increment(1)
+  });
+  registrarVisualizacaoProdutoDono(donoId, produtoId);
+  mostrarToastPonto();
+}
+
+function registrarVisualizacaoProdutoDono(donoId, produtoId){
+  fetch('/api/registrar-visualizacao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid: donoId, itemId: produtoId })
+  }).catch(() => {});
+}
+
+function mostrarToastPonto(){
+  const toast = document.getElementById('viralPontoToast');
+  toast.classList.add('mostrar');
+  setTimeout(() => toast.classList.remove('mostrar'), 1400);
+}
+
+function registrarCliqueViral(donoId, produtoId){
+  fetch('/api/registrar-clique', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid: donoId, itemId: produtoId })
+  }).catch(() => {});
+}
+
 let capaMarcadaParaRemover = false;
 let capaEscolhidaGaleria = null;
 let planoAtualUsuario = 'gratis';
@@ -1436,7 +1565,7 @@ function carregarCatalogo(){
           <div class="produto-info">
             <div>${p.nome}</div>
             <div class="preco">R$ ${p.preco||'--'}</div>
-            <div style="font-size:10px;color:${ativo ? '#4caf50' : 'var(--muted)'};font-weight:700;">${ativo ? '● Ativo na loja' : '○ Desativado (não aparece na loja)'} · 🖱️ ${p.cliques||0} cliques</div>
+            <div style="font-size:10px;color:${ativo ? '#4caf50' : 'var(--muted)'};font-weight:700;">${ativo ? '● Ativo na loja' : '○ Desativado (não aparece na loja)'} · 🖱️ ${p.cliques||0} cliques · 👀 ${p.visualizacoesViral||0} no Viral</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <button onclick="alternarStatusProduto('${d.id}', ${ativo})" style="background:${ativo ? '#3a1e1e' : '#1e3a24'};color:${ativo ? '#ff8080' : '#7ee08a'};border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">${ativo ? 'Desativar' : 'Ativar'}</button>
