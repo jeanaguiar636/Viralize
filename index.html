@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Viralize — Rede Social de Afiliados</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#ff5c35">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -36,6 +40,8 @@
   .acoes button{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;padding:6px 4px;}
   .acoes button.ativo{color:var(--accent);}
   .fab{position:fixed;bottom:20px;right:20px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;font-size:26px;color:#fff;box-shadow:0 6px 20px rgba(255,92,53,.4);cursor:pointer;z-index:20;}
+  #fabInstalar{position:fixed;bottom:20px;left:20px;z-index:20;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:30px;padding:12px 16px;font-size:13px;font-weight:700;display:none;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.4);cursor:pointer;}
+  #fabInstalar.mostrar{display:flex;}
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;}
   nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
   nav.tabs button.ativo{color:var(--accent);}
@@ -97,7 +103,6 @@
   <div id="viralView" class="oculto">
     <button class="viral-fechar" onclick="fecharViral()">✕</button>
     <div id="viralPontoToast" class="viral-ponto-toast">+1 ponto! 🔥</div>
-    <div id="viralDebug" style="position:fixed;top:60px;left:8px;right:8px;z-index:8;background:rgba(0,0,0,.75);color:#0f0;font-size:10px;padding:8px;border-radius:8px;max-height:120px;overflow-y:auto;font-family:monospace;"></div>
     <div class="viral-scroll" id="viralScroll"></div>
   </div>
   <div id="adminView" class="oculto">
@@ -168,6 +173,7 @@
 </main>
 
 <button class="fab" onclick="abrirModalPost()">+</button>
+<button id="fabInstalar" onclick="clicouInstalar()">📲 <span id="textoFabInstalar">Baixar o Viralize</span></button>
 
 <nav class="tabs">
   <button id="tabFeed" class="ativo" onclick="mudarAba('feed')">📱<br>Feed</button>
@@ -403,6 +409,62 @@ let tipoSelecionado = "texto";
 const ADMIN_EMAIL = "jeanaguiar636@gmail.com";
 const uidConvite = new URLSearchParams(window.location.search).get('convite');
 carregarCoresSalvas();
+
+/* ---------------- INSTALAR APP (PWA) ---------------- */
+let promptInstalacaoAdiado = null;
+const rodandoInstalado = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+}
+
+function atualizarBotaoInstalar(){
+  const btn = document.getElementById('fabInstalar');
+  const texto = document.getElementById('textoFabInstalar');
+  if(rodandoInstalado){
+    btn.classList.remove('mostrar'); // já está usando o app instalado, não faz sentido mostrar o botão
+    return;
+  }
+  if(localStorage.getItem('viralizeInstalado') === '1'){
+    texto.textContent = 'Abrir o Viralize';
+    btn.classList.add('mostrar');
+  } else if(promptInstalacaoAdiado){
+    texto.textContent = 'Baixar o Viralize';
+    btn.classList.add('mostrar');
+  }
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  promptInstalacaoAdiado = e;
+  atualizarBotaoInstalar();
+});
+
+window.addEventListener('appinstalled', () => {
+  localStorage.setItem('viralizeInstalado', '1');
+  promptInstalacaoAdiado = null;
+  atualizarBotaoInstalar();
+});
+
+async function clicouInstalar(){
+  if(localStorage.getItem('viralizeInstalado') === '1' && !promptInstalacaoAdiado){
+    aviso('Você já tem o Viralize instalado! 📲\n\nProcure o ícone 🔥 na tela inicial do seu celular pra abrir.', '📲');
+    return;
+  }
+  if(!promptInstalacaoAdiado){
+    aviso('Pra instalar: toque nos 3 pontinhos do navegador e escolha "Adicionar à tela inicial" ou "Instalar app".', '📲');
+    return;
+  }
+  promptInstalacaoAdiado.prompt();
+  const { outcome } = await promptInstalacaoAdiado.userChoice;
+  if(outcome === 'accepted'){
+    localStorage.setItem('viralizeInstalado', '1');
+  }
+  promptInstalacaoAdiado = null;
+  atualizarBotaoInstalar();
+}
+
+atualizarBotaoInstalar();
 
 function aviso(mensagem, icone, textoAcao, acaoFn){
   document.getElementById('textoAviso').textContent = mensagem;
