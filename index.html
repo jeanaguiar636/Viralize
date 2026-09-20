@@ -1251,7 +1251,6 @@ async function abrirModalPerfil(){
   capaMarcadaParaRemover = false;
   capaEscolhidaGaleria = null;
   document.getElementById('inputFotoPerfil').value = '';
-  document.getElementById('statusUploadPerfil').textContent = '';
 
   const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
   const dados = doc.exists ? doc.data() : {};
@@ -1273,6 +1272,7 @@ async function abrirModalPerfil(){
       <div id="statusUploadPerfil2" style="font-size:12px;color:var(--muted);margin-top:10px;"></div>
       <button class="btn-principal" onclick="salvarPerfil()">💾 Salvar foto de perfil</button>
     `;
+    document.getElementById('modalPerfil').style.display = 'flex';
     return;
   }
 
