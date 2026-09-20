@@ -1325,7 +1325,7 @@ async function carregarViral(){
     document.querySelectorAll('.viral-slide').forEach(el => observadorViral.observe(el));
   }catch(err){
     console.error(err);
-    scrollEl.innerHTML = '<div class="vazio" style="color:#fff;padding-top:40vh;">Erro ao carregar. Tente novamente.</div>';
+    scrollEl.innerHTML = `<div class="vazio" style="color:#fff;padding-top:30vh;padding-left:16px;padding-right:16px;">Erro ao carregar.<br><br><span style="font-size:11px;color:#ff8080;word-break:break-word;">${escapeHtml(err.message || String(err))}</span><br><br><button onclick="carregarViral()" style="background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:20px;">Tentar de novo</button></div>`;
   }
 }
 
