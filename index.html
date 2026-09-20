@@ -1044,15 +1044,14 @@ function carregarFeed(){
         el.appendChild(card);
 
         if(p.tipo === 'produto' && p.itemCatalogoId && p.autorId){
-          db.collection('usuarios').doc(p.autorId).collection('catalogo').doc(p.itemCatalogoId).get()
-            .then(itemDoc => {
+          db.collection('usuarios').doc(p.autorId).collection('catalogo').doc(p.itemCatalogoId)
+            .onSnapshot(itemDoc => {
               const spanEl = document.getElementById('visViral-' + d.id);
               if(spanEl && itemDoc.exists){
                 const item = itemDoc.data();
                 spanEl.textContent = `👀 ${item.visualizacoesViral||0} no Viral · 🖱️ ${item.cliques||0} cliques`;
               }
-            })
-            .catch(() => {});
+            }, () => {});
         }
       });
     });
@@ -1348,18 +1347,24 @@ async function registrarVisualizacaoViral(donoId, produtoId){
   if(produtosJaVistosSessao.has(chave)) return; // já processado nessa sessão, evita leituras repetidas
   produtosJaVistosSessao.add(chave);
 
-  if(donoId === usuarioAtual.uid) return; // não ganha ponto vendo o próprio produto
+  const ehProprioProduto = donoId === usuarioAtual.uid;
 
   const refVisto = db.collection('usuarios').doc(usuarioAtual.uid).collection('visualizacoesViral').doc(chave);
   const jaVisto = await refVisto.get();
-  if(jaVisto.exists) return; // só ganha ponto na primeira vez que vê aquele produto específico
+  if(jaVisto.exists) return; // só conta na primeira vez que vê aquele produto específico
 
   await refVisto.set({ produtoId, donoId, vistoEm: firebase.firestore.FieldValue.serverTimestamp() });
-  await db.collection('usuarios').doc(usuarioAtual.uid).update({
-    pontos: firebase.firestore.FieldValue.increment(1)
-  });
+
+  // a visualização do produto sempre conta (mesmo sendo o próprio produto, pra dar métrica real ao afiliado)
   registrarVisualizacaoProdutoDono(donoId, produtoId);
-  mostrarToastPonto();
+
+  // mas o PONTO só é dado se não for o próprio produto, pra evitar autofarmar pontos vendo o que você mesmo postou
+  if(!ehProprioProduto){
+    await db.collection('usuarios').doc(usuarioAtual.uid).update({
+      pontos: firebase.firestore.FieldValue.increment(1)
+    });
+    mostrarToastPonto();
+  }
 }
 
 function registrarVisualizacaoProdutoDono(donoId, produtoId){
