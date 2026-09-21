@@ -1,5 +1,8 @@
 {
   "rewrites": [
-    { "source": "/p/:id", "destination": "/api/preview/:id" }
+    { "source": "/p/:id", "destination": "/api/preview/:id" },
+    { "source": "/loja/:uid", "destination": "/loja.html?uid=:uid" },
+    { "source": "/:slug", "destination": "/loja.html?slug=:slug" }
   ]
 }
+
