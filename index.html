@@ -1610,6 +1610,13 @@ async function abrirModalPerfil(){
 
   if(planoAtualUsuario !== 'pago'){
     bloco.innerHTML = `
+      <label style="margin-top:16px;">Apelido da loja (link curto)</label>
+      <div style="display:flex;align-items:center;gap:2px;">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">viralize.alibr.com.br/</span>
+        <input type="text" id="inputSlugLoja" maxlength="30" placeholder="seunome" oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')" style="flex:1;">
+      </div>
+      <div id="statusSlugLoja" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
+
       <label style="margin-top:16px;">Estilo da loja pública</label>
       <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Escolha como sua loja aparece pra quem visita o link.</p>
       <div style="display:flex;gap:6px;margin-bottom:14px;">
@@ -1627,11 +1634,19 @@ async function abrirModalPerfil(){
     `;
     estiloLojaAtual = dados.estiloLoja === 'reels' ? 'reels' : 'grade';
     marcarBotaoEstiloAtivo();
+    document.getElementById('inputSlugLoja').value = dados.slug || '';
     document.getElementById('modalPerfil').style.display = 'flex';
     return;
   }
 
   bloco.innerHTML = `
+    <label style="margin-top:16px;">Apelido da loja (link curto)</label>
+    <div style="display:flex;align-items:center;gap:2px;">
+      <span style="font-size:12px;color:var(--muted);white-space:nowrap;">viralize.alibr.com.br/</span>
+      <input type="text" id="inputSlugLoja" maxlength="30" placeholder="seunome" oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')" style="flex:1;">
+    </div>
+    <div id="statusSlugLoja" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
+
     <label style="margin-top:16px;">Estilo da loja pública</label>
     <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Escolha como sua loja aparece pra quem visita o link.</p>
     <div style="display:flex;gap:6px;margin-bottom:16px;">
@@ -1677,6 +1692,7 @@ async function abrirModalPerfil(){
   document.getElementById('inputNomeLoja').value = dados.nomeLoja || dados.nome || '';
   document.getElementById('inputDescricaoLoja').value = dados.descricaoLoja || '';
   document.getElementById('inputCorLoja').value = dados.corLoja || '#ee4d2d';
+  document.getElementById('inputSlugLoja').value = dados.slug || '';
   estiloLojaAtual = dados.estiloLoja === 'reels' ? 'reels' : 'grade';
   marcarBotaoEstiloAtivo();
   atualizarContador('inputNomeLoja','contadorNomeLoja',40);
@@ -1742,6 +1758,30 @@ async function salvarPerfil(){
   const arquivoPerfil = document.getElementById('inputFotoPerfil').files[0];
   const atualizacoes = { estiloLoja: estiloLojaAtual };
 
+  const slugDigitado = document.getElementById('inputSlugLoja').value.trim().toLowerCase();
+  const PALAVRAS_RESERVADAS = ['api','loja','p','icons','admin','viralize','index','manifest','favicon','service-worker','www','app','static','assets'];
+
+  if(slugDigitado){
+    if(slugDigitado.length < 3){
+      aviso('O apelido da loja precisa ter pelo menos 3 letras.');
+      return;
+    }
+    if(PALAVRAS_RESERVADAS.includes(slugDigitado)){
+      aviso('Esse apelido não pode ser usado, escolha outro.');
+      return;
+    }
+    statusEl.textContent = 'Verificando apelido...';
+    const jaExiste = await db.collection('usuarios').where('slug','==', slugDigitado).limit(1).get();
+    if(!jaExiste.empty && jaExiste.docs[0].id !== usuarioAtual.uid){
+      statusEl.textContent = '';
+      aviso('Esse apelido já está sendo usado por outra loja. Escolha outro.');
+      return;
+    }
+    atualizacoes.slug = slugDigitado;
+  } else {
+    atualizacoes.slug = firebase.firestore.FieldValue.delete();
+  }
+
   if(planoAtualUsuario === 'pago'){
     atualizacoes.nomeLoja = document.getElementById('inputNomeLoja').value.trim().slice(0,40);
     atualizacoes.descricaoLoja = document.getElementById('inputDescricaoLoja').value.trim().slice(0,100);
@@ -1779,9 +1819,13 @@ async function salvarPerfil(){
     aviso('Erro ao salvar: ' + err.message);
   }
 }
-function copiarLinkLoja(){
+async function copiarLinkLoja(){
   if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
-  const link = window.location.origin + '/loja.html?uid=' + usuarioAtual.uid;
+  const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+  const dados = doc.data() || {};
+  const link = dados.slug
+    ? window.location.origin + '/' + dados.slug
+    : window.location.origin + '/loja.html?uid=' + usuarioAtual.uid;
   navigator.clipboard.writeText(link);
   aviso('Link da sua loja copiado! Cole na bio do TikTok, Instagram ou onde quiser divulgar:\n' + link, '🔗');
 }
