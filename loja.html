@@ -266,11 +266,27 @@ function escurecerCor(hex, porcentagem){
 
 async function carregarLoja(){
   const params = new URLSearchParams(window.location.search);
-  const uid = params.get('uid');
+  let uid = params.get('uid');
+  const slug = params.get('slug');
 
-  if(!uid){
+  if(!uid && !slug){
     document.getElementById('headerLoja').innerHTML = '<header><h1 style="color:#fff;">Loja não encontrada</h1></header>';
     return;
+  }
+
+  if(!uid && slug){
+    try{
+      const busca = await db.collection('usuarios').where('slug','==', slug.toLowerCase()).limit(1).get();
+      if(busca.empty){
+        document.getElementById('headerLoja').innerHTML = '<header><h1 style="color:#fff;">Loja não encontrada</h1><p style="color:#fff;opacity:.7;">Confira se o link está certo.</p></header>';
+        return;
+      }
+      uid = busca.docs[0].id;
+    }catch(err){
+      console.error(err);
+      document.getElementById('headerLoja').innerHTML = '<header><h1 style="color:#fff;">Erro ao carregar loja</h1></header>';
+      return;
+    }
   }
 
   try{
