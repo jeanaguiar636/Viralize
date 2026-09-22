@@ -41,6 +41,8 @@
   .acoes button.ativo{color:var(--accent);}
   .fab{position:fixed;bottom:calc(74px + env(safe-area-inset-bottom, 0px));right:20px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;font-size:26px;color:#fff;box-shadow:0 6px 20px rgba(255,92,53,.4);cursor:pointer;z-index:20;}
   #fabInstalar{position:fixed;bottom:calc(74px + env(safe-area-inset-bottom, 0px));left:20px;z-index:20;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:30px;padding:12px 16px;font-size:13px;font-weight:700;display:none;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.4);cursor:pointer;}
+  #fabChatGeral{position:fixed;bottom:calc(140px + env(safe-area-inset-bottom, 0px));right:20px;width:50px;height:50px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--accent2);font-size:22px;box-shadow:0 6px 16px rgba(0,0,0,.4);cursor:pointer;z-index:20;display:flex;align-items:center;justify-content:center;}
+  #fabChatGeral .badge-chat{position:absolute;top:-2px;right:-2px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:14px;}
   #fabInstalar.mostrar{display:flex;}
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;min-height:58px;padding-bottom:env(safe-area-inset-bottom, 0px);}
   nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
@@ -175,6 +177,9 @@
 
 <button class="fab" onclick="abrirModalPost()">+</button>
 <button id="fabInstalar" onclick="clicouInstalar()">📲 <span id="textoFabInstalar">Baixar o Viralize</span></button>
+<button id="fabChatGeral" onclick="abrirChatGeral()">
+  💬<span id="badgeChatGeral" class="badge-chat oculto"></span>
+</button>
 
 <nav class="tabs">
   <button id="tabFeed" class="ativo" onclick="mudarAba('feed')">📱<br>Feed</button>
@@ -313,6 +318,19 @@
   <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--card);">
     <input type="text" id="inputChatSuporte" placeholder="Escreva sua mensagem..." style="flex:1;" onkeydown="if(event.key==='Enter') enviarMensagemChatSuporte()">
     <button onclick="enviarMensagemChatSuporte()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:0 16px;font-size:14px;">Enviar</button>
+  </div>
+</div>
+
+<!-- Modal Chat Geral (ao vivo, todo mundo conversa junto) -->
+<div id="modalChatGeral" style="position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:36;">
+  <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);">
+    <h3 style="margin:0;flex:1;font-size:16px;">💬 Chat da Comunidade</h3>
+    <button onclick="fecharChatGeral()" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;">✕</button>
+  </div>
+  <div id="listaChatGeral" style="flex:1;overflow-y:auto;padding:14px 16px;"></div>
+  <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--card);">
+    <input type="text" id="inputChatGeral" placeholder="Escreva sua mensagem..." style="flex:1;" onkeydown="if(event.key==='Enter') enviarMensagemChatGeral()">
+    <button onclick="enviarMensagemChatGeral()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:0 16px;font-size:14px;">Enviar</button>
   </div>
 </div>
 
@@ -538,6 +556,7 @@ auth.onAuthStateChanged(async (user) => {
     carregarRanking();
     carregarCatalogo();
     escutarNotificacoes();
+    escutarBadgeChatGeral();
 
     if(user.email === ADMIN_EMAIL){
       document.getElementById('tabAdmin').classList.remove('oculto');
@@ -2062,6 +2081,77 @@ function fecharChatSuporte(){
   document.getElementById('modalChatSuporte').style.display = 'none';
   if(unsubscribeChatSuporte){ unsubscribeChatSuporte(); unsubscribeChatSuporte = null; }
   chatSuporteUserId = null;
+}
+
+/* ---------------- CHAT DA COMUNIDADE (ao vivo, todo mundo junto) ---------------- */
+let unsubscribeChatGeral = null;
+let unsubscribeBadgeChatGeral = null;
+
+function abrirChatGeral(){
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
+  document.getElementById('modalChatGeral').style.display = 'flex';
+  document.getElementById('badgeChatGeral').classList.add('oculto');
+  localStorage.setItem('viralizeUltimaLeituraChatGeral', Date.now().toString());
+
+  if(unsubscribeChatGeral) unsubscribeChatGeral();
+  unsubscribeChatGeral = db.collection('chatGeral').orderBy('criadoEm','desc').limit(100)
+    .onSnapshot(snap => {
+      const el = document.getElementById('listaChatGeral');
+      if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhuma mensagem ainda. Comece a conversa! 👋</div>'; return; }
+      const msgs = [];
+      snap.forEach(d => msgs.push(d.data()));
+      msgs.reverse();
+      el.innerHTML = '';
+      msgs.forEach(m => {
+        const minhaMsg = m.autorId === usuarioAtual.uid;
+        const div = document.createElement('div');
+        div.style.cssText = `margin-bottom:12px;display:flex;flex-direction:column;align-items:${minhaMsg ? 'flex-end' : 'flex-start'};`;
+        div.innerHTML = `
+          <span style="font-size:10px;color:var(--muted);margin-bottom:2px;">${escapeHtml(m.autorNome || 'Afiliado')}</span>
+          <div style="background:${minhaMsg ? 'var(--accent)' : 'var(--card)'};border:1px solid var(--border);color:${minhaMsg?'#fff':'var(--text)'};border-radius:12px;padding:8px 12px;font-size:13px;max-width:80%;word-break:break-word;">${escapeHtml(m.texto)}</div>
+        `;
+        el.appendChild(div);
+      });
+      el.scrollTop = el.scrollHeight;
+    });
+}
+
+function fecharChatGeral(){
+  document.getElementById('modalChatGeral').style.display = 'none';
+  if(unsubscribeChatGeral){ unsubscribeChatGeral(); unsubscribeChatGeral = null; }
+}
+
+async function enviarMensagemChatGeral(){
+  const input = document.getElementById('inputChatGeral');
+  const texto = input.value.trim();
+  if(!texto || !usuarioAtual) return;
+
+  const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+  const nomeAutor = doc.exists ? doc.data().nome : 'Afiliado';
+
+  await db.collection('chatGeral').add({
+    texto: texto.slice(0, 500),
+    autorId: usuarioAtual.uid,
+    autorNome: nomeAutor,
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  input.value = '';
+}
+
+function escutarBadgeChatGeral(){
+  if(!usuarioAtual) return;
+  if(unsubscribeBadgeChatGeral) unsubscribeBadgeChatGeral();
+  unsubscribeBadgeChatGeral = db.collection('chatGeral').orderBy('criadoEm','desc').limit(1)
+    .onSnapshot(snap => {
+      if(snap.empty) return;
+      const ultima = snap.docs[0].data();
+      const modalAberto = document.getElementById('modalChatGeral').style.display === 'flex';
+      const ultimaLeitura = Number(localStorage.getItem('viralizeUltimaLeituraChatGeral') || 0);
+      const criadoEmMs = ultima.criadoEm ? ultima.criadoEm.toMillis() : 0;
+      if(!modalAberto && ultima.autorId !== usuarioAtual.uid && criadoEmMs > ultimaLeitura){
+        document.getElementById('badgeChatGeral').classList.remove('oculto');
+      }
+    });
 }
 
 async function enviarMensagemChatSuporte(textoForcado){
