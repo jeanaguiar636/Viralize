@@ -32,6 +32,9 @@
   .embed-wrap iframe{width:100%;aspect-ratio:9/16;border:0;display:block;}
   .embed-wrap.wide iframe{aspect-ratio:16/9;}
   .produto-card{display:flex;gap:10px;background:#1e222b;border-radius:10px;padding:10px;margin-bottom:10px;}
+  @keyframes brilhoFogo{0%,100%{box-shadow:0 0 8px 2px rgba(255,92,53,.55),0 0 18px 4px rgba(255,179,71,.35);}50%{box-shadow:0 0 14px 4px rgba(255,92,53,.85),0 0 26px 8px rgba(255,179,71,.5);}}
+  .produto-campeao{border:2px solid var(--accent);animation:brilhoFogo 2s ease-in-out infinite;}
+  .campeao-selo{display:inline-block;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;margin-bottom:4px;}
   .produto-card img{width:70px;height:70px;border-radius:8px;object-fit:cover;background:#333;}
   .produto-info{flex:1;}
   .produto-info .preco{color:var(--accent2);font-weight:700;font-size:16px;}
@@ -121,6 +124,7 @@
       <button onclick="mudarSubAbaAdmin('assinaturas')" id="subTabAssinaturas" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Assinaturas</button>
       <button onclick="mudarSubAbaAdmin('galeria')" id="subTabGaleria" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Galeria</button>
       <button onclick="mudarSubAbaAdmin('chat')" id="subTabChat" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Chat</button>
+      <button onclick="mudarSubAbaAdmin('ajustes')" id="subTabAjustes" style="border-radius:20px;padding:8px 14px;border:1px solid var(--border);background:#1e222b;color:var(--muted);">Ajustes</button>
     </div>
     <div id="adminAprovacoes"></div>
     <div id="adminPosts" class="oculto"></div>
@@ -172,6 +176,24 @@
       <div id="listaGaleriaAdmin" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;"></div>
     </div>
     <div id="adminChat" class="oculto"><div id="listaConversasAdmin"></div></div>
+    <div id="adminAjustes" class="oculto">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:14px;font-weight:700;">💬 Chat da Comunidade</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Se desativado, a bolinha de chat some pra todo mundo.</div>
+          </div>
+          <button id="btnToggleChatGeral" onclick="alternarChatGeralAdmin()" style="border:none;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;white-space:nowrap;">...</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:8px;">👑 Produto Campeão</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Esse produto ganha um brilho laranja de destaque no Feed e na aba Viral.</div>
+        <div id="produtoCampeaoAtual" style="margin-bottom:12px;"></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Escolha um novo campeão na lista:</div>
+        <div id="listaEscolherCampeao"></div>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -427,6 +449,7 @@ let usuarioAtual = null;
 let tipoSelecionado = "texto";
 const ADMIN_EMAIL = "jeanaguiar636@gmail.com";
 const uidConvite = new URLSearchParams(window.location.search).get('convite');
+let configRecursos = { chatAtivo: true, produtoCampeaoDono: null, produtoCampeaoId: null };
 carregarCoresSalvas();
 
 /* ---------------- INSTALAR APP (PWA) ---------------- */
@@ -557,6 +580,7 @@ auth.onAuthStateChanged(async (user) => {
     carregarCatalogo();
     escutarNotificacoes();
     escutarBadgeChatGeral();
+    carregarConfigRecursos();
 
     if(user.email === ADMIN_EMAIL){
       document.getElementById('tabAdmin').classList.remove('oculto');
@@ -616,7 +640,8 @@ function mudarSubAbaAdmin(sub){
   document.getElementById('adminAssinaturas').classList.toggle('oculto', sub!=='assinaturas');
   document.getElementById('adminGaleria').classList.toggle('oculto', sub!=='galeria');
   document.getElementById('adminChat').classList.toggle('oculto', sub!=='chat');
-  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios', paginas: 'subTabPaginas', cores: 'subTabCores', catalogos: 'subTabCatalogos', assinaturas: 'subTabAssinaturas', galeria: 'subTabGaleria', chat: 'subTabChat' };
+  document.getElementById('adminAjustes').classList.toggle('oculto', sub!=='ajustes');
+  const btns = { aprovacoes: 'subTabAprovacoes', posts: 'subTabPosts', usuarios: 'subTabUsuarios', paginas: 'subTabPaginas', cores: 'subTabCores', catalogos: 'subTabCatalogos', assinaturas: 'subTabAssinaturas', galeria: 'subTabGaleria', chat: 'subTabChat', ajustes: 'subTabAjustes' };
   Object.entries(btns).forEach(([key, id]) => {
     document.getElementById(id).style.background = key===sub ? 'var(--accent)' : '#1e222b';
     document.getElementById(id).style.color = key===sub ? '#fff' : 'var(--muted)';
@@ -626,6 +651,7 @@ function mudarSubAbaAdmin(sub){
   if(sub === 'assinaturas') { carregarConfigAssinaturaAdmin(); carregarAssinaturasPendentes(); carregarAssinantesAtivos(); }
   if(sub === 'galeria') carregarGaleriaAdmin();
   if(sub === 'chat') carregarConversasAdmin();
+  if(sub === 'ajustes') carregarAjustesAdmin();
 }
 
 /* ---------------- MODAL DE POST ---------------- */
@@ -850,9 +876,11 @@ function renderEmbed(post, postId){
     return `<img src="${post.midiaUrl}" style="width:100%;border-radius:10px;display:block;">`;
   }
   if(post.tipo === 'produto'){
-    return `<div class="produto-card">
+    const ehCampeao = ehProdutoCampeao(post.autorId, post.itemCatalogoId);
+    return `<div class="produto-card${ehCampeao ? ' produto-campeao' : ''}">
       <img src="${post.produtoImg || 'https://via.placeholder.com/70'}">
       <div class="produto-info">
+        ${ehCampeao ? `<div class="campeao-selo">👑 Produto Campeão</div>` : ''}
         ${post.produtoPlataforma ? `<div style="font-size:10px;color:var(--accent2);font-weight:700;margin-bottom:2px;">${post.produtoPlataforma}</div>` : ''}
         <div>${post.produtoNome}</div>
         <div class="preco">R$ ${post.produtoPreco || '--'}</div>
@@ -1428,10 +1456,11 @@ async function carregarViral(){
     produtosViralAtuais = produtos;
 
     scrollEl.innerHTML = produtos.map(p => `
-      <div class="viral-slide" data-id="${p.id}" data-dono="${p.donoId}">
+      <div class="viral-slide${ehProdutoCampeao(p.donoId, p.id) ? ' produto-campeao' : ''}" data-id="${p.id}" data-dono="${p.donoId}">
         <div class="fundo-blur" style="background-image:url('${p.img}');"></div>
         <img src="${p.img}" loading="lazy">
         <div class="viral-info">
+          ${ehProdutoCampeao(p.donoId, p.id) ? `<div class="campeao-selo">👑 Produto Campeão</div>` : ''}
           <div class="viral-selo">${p.plataforma || 'Oferta'}</div>
           <div class="viral-nome">${escapeHtml(p.nome || 'Produto')}</div>
           <div class="viral-preco">R$ ${p.preco || '--'}</div>
@@ -2089,6 +2118,7 @@ let unsubscribeBadgeChatGeral = null;
 
 function abrirChatGeral(){
   if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
+  if(!configRecursos.chatAtivo){ aviso('O chat da comunidade está desativado no momento.'); return; }
   document.getElementById('modalChatGeral').style.display = 'flex';
   document.getElementById('badgeChatGeral').classList.add('oculto');
   localStorage.setItem('viralizeUltimaLeituraChatGeral', Date.now().toString());
@@ -2202,6 +2232,108 @@ function carregarConversasAdmin(){
         el.appendChild(div);
       });
     });
+}
+
+/* ---------------- AJUSTES (chat geral on/off + produto campeão) ---------------- */
+async function carregarAjustesAdmin(){
+  const doc = await db.collection('config').doc('recursos').get();
+  const c = doc.exists ? doc.data() : {};
+  configRecursos = { chatAtivo: c.chatAtivo !== false, produtoCampeaoDono: c.produtoCampeaoDono || null, produtoCampeaoId: c.produtoCampeaoId || null };
+
+  atualizarBotaoToggleChat();
+
+  const painelCampeao = document.getElementById('produtoCampeaoAtual');
+  if(configRecursos.produtoCampeaoId){
+    const itemDoc = await db.collection('usuarios').doc(configRecursos.produtoCampeaoDono).collection('catalogo').doc(configRecursos.produtoCampeaoId).get();
+    const item = itemDoc.exists ? itemDoc.data() : null;
+    painelCampeao.innerHTML = item ? `
+      <div class="produto-card" style="box-shadow:0 0 0 2px var(--accent), 0 0 16px rgba(255,92,53,.6);">
+        <img src="${item.img || 'https://via.placeholder.com/70'}">
+        <div class="produto-info">
+          <div>👑 ${item.nome || 'Sem nome'}</div>
+          <div class="preco">R$ ${item.preco || '--'}</div>
+        </div>
+        <button onclick="removerProdutoCampeao()" style="color:#ff5c5c;background:none;border:none;">🗑️</button>
+      </div>
+    ` : '<div class="vazio">O produto campeão anterior foi removido do catálogo.</div>';
+  } else {
+    painelCampeao.innerHTML = '<div class="vazio">Nenhum produto campeão definido ainda.</div>';
+  }
+
+  db.collectionGroup('catalogo').limit(200).get().then(snap => {
+    const el = document.getElementById('listaEscolherCampeao');
+    if(snap.empty){ el.innerHTML = '<div class="vazio">Nenhum produto em catálogo ainda.</div>'; return; }
+    el.innerHTML = '';
+    snap.forEach(doc => {
+      const p = doc.data();
+      const userId = doc.ref.parent.parent.id;
+      const jaEhCampeao = userId === configRecursos.produtoCampeaoDono && doc.id === configRecursos.produtoCampeaoId;
+      const div = document.createElement('div');
+      div.className = 'produto-card';
+      div.innerHTML = `
+        <img src="${p.img || 'https://via.placeholder.com/70'}">
+        <div class="produto-info">
+          <div>${p.nome || 'Sem nome'}</div>
+          <div class="preco">R$ ${p.preco || '--'}</div>
+        </div>
+        <button onclick="definirProdutoCampeao('${userId}','${doc.id}')" ${jaEhCampeao ? 'disabled' : ''} style="background:${jaEhCampeao ? '#3a2c1e' : '#1e3a24'};color:${jaEhCampeao ? 'var(--accent2)' : '#7ee08a'};border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">${jaEhCampeao ? '👑 Atual' : 'Tornar campeão'}</button>
+      `;
+      el.appendChild(div);
+    });
+  });
+}
+
+function atualizarBotaoToggleChat(){
+  const btn = document.getElementById('btnToggleChatGeral');
+  btn.textContent = configRecursos.chatAtivo ? '✅ Ativado' : '⛔ Desativado';
+  btn.style.background = configRecursos.chatAtivo ? '#1e3a24' : '#3a1e1e';
+  btn.style.color = configRecursos.chatAtivo ? '#7ee08a' : '#ff8080';
+}
+
+async function alternarChatGeralAdmin(){
+  configRecursos.chatAtivo = !configRecursos.chatAtivo;
+  await db.collection('config').doc('recursos').set({ chatAtivo: configRecursos.chatAtivo }, { merge: true });
+  atualizarBotaoToggleChat();
+  aplicarVisibilidadeChatGeral();
+}
+
+async function definirProdutoCampeao(donoId, itemId){
+  configRecursos.produtoCampeaoDono = donoId;
+  configRecursos.produtoCampeaoId = itemId;
+  await db.collection('config').doc('recursos').set({ produtoCampeaoDono: donoId, produtoCampeaoId: itemId }, { merge: true });
+  carregarAjustesAdmin();
+  aviso('Produto campeão definido! 👑🔥');
+}
+
+async function removerProdutoCampeao(){
+  configRecursos.produtoCampeaoDono = null;
+  configRecursos.produtoCampeaoId = null;
+  await db.collection('config').doc('recursos').set({
+    produtoCampeaoDono: firebase.firestore.FieldValue.delete(),
+    produtoCampeaoId: firebase.firestore.FieldValue.delete()
+  }, { merge: true });
+  carregarAjustesAdmin();
+}
+
+function aplicarVisibilidadeChatGeral(){
+  const btn = document.getElementById('fabChatGeral');
+  if(!btn) return;
+  btn.style.display = configRecursos.chatAtivo ? 'flex' : 'none';
+}
+
+async function carregarConfigRecursos(){
+  try{
+    const doc = await db.collection('config').doc('recursos').get();
+    const c = doc.exists ? doc.data() : {};
+    configRecursos = { chatAtivo: c.chatAtivo !== false, produtoCampeaoDono: c.produtoCampeaoDono || null, produtoCampeaoId: c.produtoCampeaoId || null };
+  }catch(err){
+    configRecursos = { chatAtivo: true, produtoCampeaoDono: null, produtoCampeaoId: null };
+  }
+  aplicarVisibilidadeChatGeral();
+}
+
+function ehProdutoCampeao(donoId, itemId){
+  return configRecursos.produtoCampeaoDono === donoId && configRecursos.produtoCampeaoId === itemId;
 }
 
 function carregarCatalogosAdmin(){
