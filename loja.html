@@ -59,6 +59,11 @@
   #reelsView{position:fixed;inset:0;background:#000;}
   .reels-scroll{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;}
   .reels-slide{height:100%;width:100%;scroll-snap-align:start;position:relative;overflow:hidden;background:#000;}
+  .reels-imagens{position:absolute;inset:0;display:flex;overflow-x:scroll;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;}
+  .reels-imagem-item{flex:0 0 100%;width:100%;height:100%;position:relative;scroll-snap-align:start;overflow:hidden;}
+  .reels-dots{position:absolute;top:62px;left:0;right:0;z-index:3;display:flex;gap:5px;padding:0 16px;}
+  .reels-dots .ponto{flex:1;height:3px;border-radius:3px;background:rgba(255,255,255,.35);}
+  .reels-dots .ponto.ativo{background:#fff;}
   .reels-slide .fundo-blur{position:absolute;inset:-20px;background-size:cover;background-position:center;filter:blur(28px) brightness(.55);transform:scale(1.15);}
   .reels-slide .imagem-produto{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
   .reels-topo{position:fixed;top:0;left:0;right:0;z-index:3;display:flex;align-items:center;gap:8px;padding:14px 20px;background:linear-gradient(rgba(0,0,0,.55),transparent);}
@@ -191,10 +196,27 @@ function renderizarReels(produtos, ehPro){
     return;
   }
 
-  el.innerHTML = produtos.map((p, i) => `
+  el.innerHTML = produtos.map((p, i) => {
+    const imagens = (p.imagens && p.imagens.length ? p.imagens : [p.img]).filter(Boolean);
+    const temVarias = imagens.length > 1;
+    return `
     <div class="reels-slide" data-id="${p.id}">
-      <div class="fundo-blur" style="background-image:url('${p.img || ''}');"></div>
-      <img class="imagem-produto" src="${p.img || 'https://via.placeholder.com/600'}" loading="${i===0 ? 'eager' : 'lazy'}">
+      ${temVarias ? `
+        <div class="reels-dots" id="dots-${p.id}">
+          ${imagens.map((_, idx) => `<div class="ponto${idx===0 ? ' ativo' : ''}"></div>`).join('')}
+        </div>
+        <div class="reels-imagens" data-produto="${p.id}">
+          ${imagens.map((url, idx) => `
+            <div class="reels-imagem-item">
+              <div class="fundo-blur" style="background-image:url('${url}');"></div>
+              <img class="imagem-produto" src="${url}" loading="${i===0 && idx===0 ? 'eager' : 'lazy'}">
+            </div>
+          `).join('')}
+        </div>
+      ` : `
+        <div class="fundo-blur" style="background-image:url('${imagens[0] || ''}');"></div>
+        <img class="imagem-produto" src="${imagens[0] || 'https://via.placeholder.com/600'}" loading="${i===0 ? 'eager' : 'lazy'}">
+      `}
       <div class="reels-info">
         <div class="reels-selo">${escapeHtml(p.plataforma || 'Oferta')}</div>
         <div class="reels-nome">${escapeHtml(p.nome || 'Produto')}</div>
@@ -203,12 +225,28 @@ function renderizarReels(produtos, ehPro){
       </div>
       ${(!ehPro && i === produtos.length - 1) ? `<a class="reels-upsell" href="/">⭐ Essa loja usa o plano grátis (1 produto). Crie a sua no Viralize →</a>` : ''}
     </div>
-  `).join('');
+  `;
+  }).join('');
+
+  // liga a rolagem horizontal (esquerda/direita) de cada produto que tem mais de uma foto
+  document.querySelectorAll('.reels-imagens').forEach(galeria => {
+    galeria.addEventListener('scroll', () => atualizarPontoAtivo(galeria), { passive: true });
+  });
 
   produtoReelsAtualId = produtos[0].id;
   const scrollEl = document.getElementById('reelsScroll');
   scrollEl.removeEventListener('scroll', atualizarProdutoReelsVisivel);
   scrollEl.addEventListener('scroll', atualizarProdutoReelsVisivel, { passive: true });
+}
+
+function atualizarPontoAtivo(galeria){
+  const indice = Math.round(galeria.scrollLeft / galeria.clientWidth);
+  const produtoId = galeria.dataset.produto;
+  const dotsEl = document.getElementById('dots-' + produtoId);
+  if(!dotsEl) return;
+  dotsEl.querySelectorAll('.ponto').forEach((ponto, i) => {
+    ponto.classList.toggle('ativo', i === indice);
+  });
 }
 
 function atualizarProdutoReelsVisivel(){
