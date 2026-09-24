@@ -445,6 +445,27 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+/* ---------------- DOMÍNIO PERSONALIZADO (loja com domínio próprio do afiliado) ----------------
+   Quando o admin cadastra um domínio (Admin > Usuários > 🌐 Domínio) E esse mesmo domínio
+   é adicionado manualmente no painel da Vercel apontando pra este projeto, quem acessar esse
+   domínio cai aqui no index.html normalmente — e este trecho detecta que não é o domínio
+   principal e manda direto pra loja pública do afiliado dono do domínio. */
+const DOMINIOS_PRINCIPAIS = ['viralize.alibr.com.br', 'localhost', '127.0.0.1'];
+(function verificarDominioPersonalizado(){
+  const host = window.location.hostname;
+  const ehDominioPrincipal = DOMINIOS_PRINCIPAIS.includes(host) || host.endsWith('.vercel.app');
+  if(ehDominioPrincipal) return;
+
+  db.collection('usuarios').where('dominioPersonalizado','==', host).limit(1).get()
+    .then(snap => {
+      if(!snap.empty){
+        window.location.replace('/loja.html?uid=' + snap.docs[0].id);
+      }
+      // se não achar dono pra esse domínio, deixa o app normal carregar mesmo assim
+    })
+    .catch(() => {});
+})();
+
 let usuarioAtual = null;
 let tipoSelecionado = "texto";
 const ADMIN_EMAIL = "jeanaguiar636@gmail.com";
@@ -2527,11 +2548,25 @@ function carregarAdminUsuarios(){
         const ehPro = u.plano === 'pago';
         el.innerHTML += `<div class="rank-item">
           <div class="avatar">${(u.nome||'A')[0].toUpperCase()}</div>
-          <div style="flex:1;">${ehPro ? '⭐ ' : ''}${u.nome||'Afiliado'}<br><small style="color:var(--muted)">${u.pontos||0} pontos</small></div>
+          <div style="flex:1;">${ehPro ? '⭐ ' : ''}${u.nome||'Afiliado'}<br><small style="color:var(--muted)">${u.pontos||0} pontos${u.dominioPersonalizado ? ' · 🌐 ' + u.dominioPersonalizado : ''}</small></div>
+          <button onclick="definirDominioAdmin('${d.id}', '${(u.dominioPersonalizado||'').replace(/'/g,"\\'")}')" style="background:#1e2a3a;color:#7ec6ff;border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">🌐 Domínio</button>
           <button onclick="alternarProAdmin('${d.id}', ${ehPro})" style="background:${ehPro ? '#3a1e1e' : '#1e3a24'};color:${ehPro ? '#ff8080' : '#7ee08a'};border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">${ehPro ? 'Remover Pro' : 'Conceder Pro'}</button>
         </div>`;
       });
     });
+}
+async function definirDominioAdmin(userId, dominioAtual){
+  const novoDominio = prompt('Domínio personalizado desse afiliado (ex: lojadocarlos.com.br)\nDeixe em branco pra remover.\n\nLembre-se: o domínio também precisa ser adicionado manualmente ao projeto na Vercel.', dominioAtual || '');
+  if(novoDominio === null) return; // cancelou
+
+  const limpo = novoDominio.trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\/$/,'');
+  if(!limpo){
+    await db.collection('usuarios').doc(userId).update({ dominioPersonalizado: firebase.firestore.FieldValue.delete() });
+    aviso('Domínio removido.');
+    return;
+  }
+  await db.collection('usuarios').doc(userId).update({ dominioPersonalizado: limpo });
+  aviso(`Domínio salvo: ${limpo}\n\nNão esqueça de adicionar esse mesmo domínio no painel da Vercel (Project Settings → Domains) apontando pro projeto Viralize.`, '🌐');
 }
 function alternarProAdmin(userId, ehProAtualmente){
   const novoPlano = ehProAtualmente ? 'gratis' : 'pago';
