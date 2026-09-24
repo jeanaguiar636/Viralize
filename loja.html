@@ -305,7 +305,20 @@ function escurecerCor(hex, porcentagem){
 async function carregarLoja(){
   const params = new URLSearchParams(window.location.search);
   let uid = params.get('uid');
-  const slug = params.get('slug');
+  let slug = params.get('slug');
+
+  // Links "bonitos" (/apelido ou /loja/uid) passam por um rewrite da Vercel que troca
+  // o arquivo servido, mas NÃO muda o endereço mostrado no navegador — então
+  // window.location.search fica vazio nesses casos. Por isso, quando não vier nada
+  // por query string, a gente lê direto do caminho da própria URL.
+  if(!uid && !slug){
+    const partes = window.location.pathname.split('/').filter(Boolean);
+    if(partes[0] === 'loja' && partes[1]){
+      uid = decodeURIComponent(partes[1]);
+    } else if(partes.length === 1 && partes[0] !== 'loja.html' && partes[0] !== 'index.html'){
+      slug = decodeURIComponent(partes[0]);
+    }
+  }
 
   if(!uid && !slug){
     document.getElementById('headerLoja').innerHTML = '<header><h1 style="color:#fff;">Loja não encontrada</h1></header>';
