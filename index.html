@@ -254,6 +254,19 @@
       <input type="text" id="prodPreco" placeholder="Ex: 79,90">
       <label>Imagem do produto (URL)</label>
       <input type="text" id="prodImg" placeholder="https://...">
+
+      <div id="blocoImagensExtras" class="oculto">
+        <label>Imagem 2 (opcional)</label>
+        <input type="text" id="prodImg2" placeholder="https://...">
+        <label>Imagem 3 (opcional)</label>
+        <input type="text" id="prodImg3" placeholder="https://...">
+        <label>Imagem 4 (opcional)</label>
+        <input type="text" id="prodImg4" placeholder="https://...">
+      </div>
+      <div id="upsellImagensExtras" class="oculto" style="background:#241a10;border:1px solid #4a3520;border-radius:8px;padding:10px;margin-top:10px;font-size:12px;color:var(--accent2);">
+        ⭐ Assine o Viralize Pro pra colocar até 4 fotos no mesmo produto, com efeito de arrastar (igual TikTok/Instagram).
+      </div>
+
       <label>Link de afiliado</label>
       <input type="text" id="prodLink" placeholder="https://shopee.com.br/... ou outro">
       <a href="https://www.dridalia.com.br/afiliados" target="_blank" rel="noopener" style="display:block;text-align:center;background:#1e222b;border:1px solid var(--border);color:var(--accent2);text-decoration:none;font-size:13px;font-weight:700;padding:12px;border-radius:10px;margin-top:10px;">👚 Ainda não é afiliado? Afilie-se à Dridália Modas</a>
@@ -676,7 +689,20 @@ function mudarSubAbaAdmin(sub){
 }
 
 /* ---------------- MODAL DE POST ---------------- */
-function abrirModalPost(){ document.getElementById('modalPost').style.display='flex'; }
+let planoModalPostAtual = 'gratis';
+async function abrirModalPost(){
+  document.getElementById('modalPost').style.display='flex';
+  if(usuarioAtual){
+    const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+    planoModalPostAtual = (doc.exists && doc.data().plano === 'pago') ? 'pago' : 'gratis';
+    atualizarBlocoImagensExtras();
+  }
+}
+function atualizarBlocoImagensExtras(){
+  const ehPro = planoModalPostAtual === 'pago';
+  document.getElementById('blocoImagensExtras').classList.toggle('oculto', !ehPro);
+  document.getElementById('upsellImagensExtras').classList.toggle('oculto', ehPro);
+}
 function fecharModalPost(){ document.getElementById('modalPost').style.display='none'; }
 
 document.getElementById('tiposBtns').addEventListener('click', (e) => {
@@ -690,6 +716,7 @@ document.getElementById('tiposBtns').addEventListener('click', (e) => {
   document.getElementById('campoLink').classList.toggle('oculto', !ehVideo);
   document.getElementById('campoProduto').classList.toggle('oculto', !ehProduto);
   document.getElementById('campoMidia').classList.toggle('oculto', !ehMidia);
+  if(ehProduto) atualizarBlocoImagensExtras();
 });
 
 /* ---------------- EXTRAIR IDs DE VÍDEO ---------------- */
@@ -833,12 +860,23 @@ async function publicar(){
     post.produtoLink = document.getElementById('prodLink').value.trim();
     post.produtoPlataforma = document.getElementById('prodPlataforma').value;
     if(!post.produtoNome || !post.produtoLink){ aviso('Preencha nome e link de afiliado do produto.'); return; }
+
+    let imagens = [post.produtoImg].filter(Boolean);
+    if(planoModalPostAtual === 'pago'){
+      ['prodImg2','prodImg3','prodImg4'].forEach(id => {
+        const valor = document.getElementById(id).value.trim();
+        if(valor) imagens.push(valor);
+      });
+    }
+    imagens = imagens.slice(0, 4);
+    post.produtoImagens = imagens;
+
     // também salva no catálogo pessoal do usuário — atualiza se já existir (evita duplicar)
     const existente = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo')
       .where('nome','==', post.produtoNome).where('link','==', post.produtoLink).limit(1).get();
 
     const dadosCatalogo = {
-      nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: post.produtoLink,
+      nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, imagens: imagens, link: post.produtoLink,
       plataforma: post.produtoPlataforma, ativo: true
     };
 
@@ -864,6 +902,10 @@ async function publicar(){
   document.getElementById('inputLink').value = '';
   document.getElementById('inputArquivo').value = '';
   document.getElementById('statusUpload').textContent = '';
+  ['prodNome','prodPreco','prodImg','prodImg2','prodImg3','prodImg4','prodLink'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
 }
 
 /* ---------------- RENDERIZAR EMBED ---------------- */
@@ -1252,14 +1294,16 @@ async function confirmarCompartilhamento(){
   const { postId, post } = postPendenteCompartilhar;
   const docUsuario = await db.collection('usuarios').doc(usuarioAtual.uid).get();
   const nomeAutor = docUsuario.exists ? docUsuario.data().nome : 'Afiliado';
+  const souPro = docUsuario.exists && docUsuario.data().plano === 'pago';
 
   if(post.tipo === 'produto'){
     if(!(await verificarLimiteCatalogo())){
       aviso(`Seu plano grátis permite até ${LIMITE_CATALOGO_GRATIS} produtos no catálogo. Assine o Viralize Pro pra ter catálogo ilimitado! ⭐`, '⭐', 'Assinar Viralize Pro', abrirModalAssinatura);
       return;
     }
+    const imagensRepost = souPro ? (post.produtoImagens && post.produtoImagens.length ? post.produtoImagens : [post.produtoImg]) : [post.produtoImg];
     const novoItemRepost = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
-      nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, link: link,
+      nome: post.produtoNome, preco: post.produtoPreco, img: post.produtoImg, imagens: imagensRepost, link: link,
       plataforma: post.produtoPlataforma, ativo: true,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -1272,6 +1316,7 @@ async function confirmarCompartilhamento(){
       produtoNome: post.produtoNome,
       produtoPreco: post.produtoPreco,
       produtoImg: post.produtoImg,
+      produtoImagens: imagensRepost,
       produtoLink: link,
       produtoPlataforma: post.produtoPlataforma,
       itemCatalogoId: novoItemRepost.id,
@@ -1597,9 +1642,11 @@ async function confirmarRevendaViral(){
   const { produto, donoId, nomeDono } = revendaPendenteViral;
   const docUsuario = await db.collection('usuarios').doc(usuarioAtual.uid).get();
   const nomeAutor = docUsuario.exists ? docUsuario.data().nome : 'Afiliado';
+  const souPro = docUsuario.exists && docUsuario.data().plano === 'pago';
+  const imagensRevenda = souPro ? (produto.imagens && produto.imagens.length ? produto.imagens : [produto.img]) : [produto.img];
 
   const novoItem = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').add({
-    nome: produto.nome, preco: produto.preco, img: produto.img, link: link,
+    nome: produto.nome, preco: produto.preco, img: produto.img, imagens: imagensRevenda, link: link,
     plataforma: produto.plataforma, ativo: true,
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   });
@@ -1612,6 +1659,7 @@ async function confirmarRevendaViral(){
     produtoNome: produto.nome,
     produtoPreco: produto.preco,
     produtoImg: produto.img,
+    produtoImagens: imagensRevenda,
     produtoLink: link,
     produtoPlataforma: produto.plataforma,
     itemCatalogoId: novoItem.id,
