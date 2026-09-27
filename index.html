@@ -64,8 +64,8 @@
   .viral-fechar{position:fixed;top:16px;right:16px;z-index:6;background:rgba(0,0,0,.5);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;}
   .viral-ponto-toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;font-weight:700;font-size:13px;padding:8px 18px;border-radius:20px;z-index:9;box-shadow:0 4px 14px rgba(0,0,0,.4);opacity:0;transition:opacity .3s;pointer-events:none;}
   .viral-ponto-toast.mostrar{opacity:1;}
-  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalPerfil,#modalNotificacoes,#modalAssinatura,#modalGaleria,#modalPainel{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
-  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalPerfil .box,#modalNotificacoes .box,#modalAssinatura .box,#modalGaleria .box,#modalPainel .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
+  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalPerfil,#modalNotificacoes,#modalAssinatura,#modalGaleria,#modalPainel,#modalEditarProduto{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
+  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalPerfil .box,#modalNotificacoes .box,#modalAssinatura .box,#modalGaleria .box,#modalPainel .box,#modalEditarProduto .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
   #modalLogin .box{border-radius:16px;margin:auto;}
   label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;}
   input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0f1115;color:var(--text);font-size:14px;}
@@ -331,6 +331,38 @@
     <div id="previewFotoPerfil" style="margin-top:8px;"></div>
 
     <div id="blocoProLoja"></div>
+  </div>
+</div>
+
+<!-- Modal Editar Produto (catálogo, só Pro) -->
+<div id="modalEditarProduto">
+  <div class="box">
+    <button class="fechar" onclick="fecharModalEditarProduto()">✕</button>
+    <h3 style="margin-top:0;">✏️ Editar produto</h3>
+    <label>Plataforma</label>
+    <select id="editProdPlataforma">
+      <option value="Shopee">🛒 Shopee</option>
+      <option value="Amazon">📦 Amazon</option>
+      <option value="Mercado Livre">🟡 Mercado Livre</option>
+      <option value="Shein">👗 Shein</option>
+      <option value="Dridália Modas">👚 Dridália Modas</option>
+      <option value="Outro">🔗 Outro</option>
+    </select>
+    <label>Nome do produto</label>
+    <input type="text" id="editProdNome">
+    <label>Preço (R$)</label>
+    <input type="text" id="editProdPreco">
+    <label>Imagem 1</label>
+    <input type="text" id="editProdImg1" placeholder="https://...">
+    <label>Imagem 2 (opcional)</label>
+    <input type="text" id="editProdImg2" placeholder="https://...">
+    <label>Imagem 3 (opcional)</label>
+    <input type="text" id="editProdImg3" placeholder="https://...">
+    <label>Imagem 4 (opcional)</label>
+    <input type="text" id="editProdImg4" placeholder="https://...">
+    <label>Link de afiliado</label>
+    <input type="text" id="editProdLink" placeholder="https://...">
+    <button class="btn-principal" onclick="salvarEdicaoProduto()">💾 Salvar alterações</button>
   </div>
 </div>
 
@@ -1693,6 +1725,7 @@ function registrarCliqueViral(donoId, produtoId){
 let capaMarcadaParaRemover = false;
 let capaEscolhidaGaleria = null;
 let planoAtualUsuario = 'gratis';
+let planoCatalogoAtual = 'gratis';
 let estiloLojaAtual = 'grade';
 
 function mudarEstiloLoja(estilo){
@@ -1948,6 +1981,9 @@ async function copiarLinkLoja(){
 }
 function carregarCatalogo(){
   if(!usuarioAtual) return;
+  db.collection('usuarios').doc(usuarioAtual.uid).get().then(doc => {
+    planoCatalogoAtual = (doc.exists && doc.data().plano === 'pago') ? 'pago' : 'gratis';
+  });
   db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').orderBy('criadoEm','desc')
     .onSnapshot(snap => {
       const el = document.getElementById('catalogoLista');
@@ -1964,6 +2000,7 @@ function carregarCatalogo(){
             <div style="font-size:10px;color:${ativo ? '#4caf50' : 'var(--muted)'};font-weight:700;">${ativo ? '● Ativo na loja' : '○ Desativado (não aparece na loja)'} · 🖱️ ${p.cliques||0} cliques · 👀 ${p.visualizacoesViral||0} no Viral</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;">
+            ${planoCatalogoAtual === 'pago' ? `<button onclick="abrirEditarProduto('${d.id}')" style="background:#1e2a3a;color:#7ec6ff;border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">✏️ Editar</button>` : ''}
             <button onclick="alternarStatusProduto('${d.id}', ${ativo})" style="background:${ativo ? '#3a1e1e' : '#1e3a24'};color:${ativo ? '#ff8080' : '#7ee08a'};border:none;border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;">${ativo ? 'Desativar' : 'Ativar'}</button>
             <button onclick="excluirDoCatalogoPessoal('${d.id}')" style="background:#2a1616;color:#ff8080;border:none;border-radius:8px;padding:6px 10px;font-size:11px;">🗑️ Excluir</button>
           </div>
@@ -1980,6 +2017,63 @@ function excluirDoCatalogoPessoal(itemId){
 function alternarStatusProduto(itemId, estaAtivo){
   db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').doc(itemId)
     .update({ ativo: !estaAtivo });
+}
+
+/* ---------------- EDITAR PRODUTO DO CATÁLOGO (só Pro) ---------------- */
+let itemEditandoAtual = null;
+
+async function abrirEditarProduto(itemId){
+  if(planoCatalogoAtual !== 'pago'){
+    aviso('Editar produtos é um recurso do Viralize Pro. ⭐', '⭐', 'Assinar Viralize Pro', abrirModalAssinatura);
+    return;
+  }
+  const doc = await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').doc(itemId).get();
+  if(!doc.exists) return;
+  const p = doc.data();
+  itemEditandoAtual = itemId;
+
+  document.getElementById('editProdPlataforma').value = p.plataforma || 'Shopee';
+  document.getElementById('editProdNome').value = p.nome || '';
+  document.getElementById('editProdPreco').value = p.preco || '';
+  document.getElementById('editProdLink').value = p.link || '';
+
+  const imagens = (p.imagens && p.imagens.length ? p.imagens : [p.img]).filter(Boolean);
+  document.getElementById('editProdImg1').value = imagens[0] || '';
+  document.getElementById('editProdImg2').value = imagens[1] || '';
+  document.getElementById('editProdImg3').value = imagens[2] || '';
+  document.getElementById('editProdImg4').value = imagens[3] || '';
+
+  document.getElementById('modalEditarProduto').style.display = 'flex';
+}
+
+function fecharModalEditarProduto(){
+  document.getElementById('modalEditarProduto').style.display = 'none';
+  itemEditandoAtual = null;
+}
+
+async function salvarEdicaoProduto(){
+  if(!itemEditandoAtual) return;
+
+  const nome = document.getElementById('editProdNome').value.trim();
+  const link = document.getElementById('editProdLink').value.trim();
+  if(!nome || !link){ aviso('Preencha nome e link de afiliado do produto.'); return; }
+
+  const imagens = ['editProdImg1','editProdImg2','editProdImg3','editProdImg4']
+    .map(id => document.getElementById(id).value.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+
+  await db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo').doc(itemEditandoAtual).update({
+    nome,
+    preco: document.getElementById('editProdPreco').value.trim(),
+    plataforma: document.getElementById('editProdPlataforma').value,
+    link,
+    img: imagens[0] || '',
+    imagens
+  });
+
+  fecharModalEditarProduto();
+  aviso('Produto atualizado! ✅');
 }
 
 /* ---------------- PAINEL ADMIN ---------------- */
