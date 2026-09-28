@@ -64,8 +64,8 @@
   .viral-fechar{position:fixed;top:16px;right:16px;z-index:6;background:rgba(0,0,0,.5);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;}
   .viral-ponto-toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;font-weight:700;font-size:13px;padding:8px 18px;border-radius:20px;z-index:9;box-shadow:0 4px 14px rgba(0,0,0,.4);opacity:0;transition:opacity .3s;pointer-events:none;}
   .viral-ponto-toast.mostrar{opacity:1;}
-  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalPerfil,#modalNotificacoes,#modalAssinatura,#modalGaleria,#modalPainel,#modalEditarProduto{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
-  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalPerfil .box,#modalNotificacoes .box,#modalAssinatura .box,#modalGaleria .box,#modalPainel .box,#modalEditarProduto .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
+  #modalPost,#modalLogin,#modalCompartilhar,#modalMenu,#modalPagina,#modalPerfil,#modalNotificacoes,#modalAssinatura,#modalGaleria,#modalPainel,#modalEditarProduto,#modalImportar{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:30;}
+  #modalPost .box,#modalLogin .box,#modalCompartilhar .box,#modalMenu .box,#modalPagina .box,#modalPerfil .box,#modalNotificacoes .box,#modalAssinatura .box,#modalGaleria .box,#modalPainel .box,#modalEditarProduto .box,#modalImportar .box{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:85vh;overflow:auto;}
   #modalLogin .box{border-radius:16px;margin:auto;}
   label{font-size:12px;color:var(--muted);display:block;margin:10px 0 4px;}
   input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0f1115;color:var(--text);font-size:14px;}
@@ -103,6 +103,11 @@
       <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">🔗 Sua loja pública (sem precisar de login pra quem visitar)</div>
       <button onclick="copiarLinkLoja()" style="width:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:10px;padding:12px 0;font-weight:700;font-size:14px;">📋 Copiar link da minha loja</button>
       <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Cole esse link na bio do seu TikTok/Instagram/Shopee.</p>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">📥 Cadastrar vários produtos de uma vez <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:4px;">⭐ Pro</span></div>
+      <button onclick="abrirModalImportar()" style="width:100%;background:#1e222b;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:12px 0;font-weight:700;font-size:14px;">📥 Importar planilha de produtos</button>
+      <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Suba um Excel (.xlsx) ou .csv e todos os produtos entram no catálogo de uma vez.</p>
     </div>
     <div id="catalogoLista"></div>
   </div>
@@ -363,6 +368,22 @@
     <label>Link de afiliado</label>
     <input type="text" id="editProdLink" placeholder="https://...">
     <button class="btn-principal" onclick="salvarEdicaoProduto()">💾 Salvar alterações</button>
+  </div>
+</div>
+
+<!-- Modal Importar Planilha (só Pro/admin) -->
+<div id="modalImportar">
+  <div class="box">
+    <button class="fechar" onclick="fecharModalImportar()">✕</button>
+    <h3 style="margin-top:0;">📥 Importar planilha</h3>
+    <p style="font-size:13px;color:var(--muted);">Suba uma planilha (Excel .xlsx ou .csv) e os produtos entram de uma vez no seu catálogo. Até 300 produtos por planilha.</p>
+    <button onclick="baixarModeloPlanilha()" style="width:100%;background:#1e2a3a;color:#7ec6ff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:13px;">⬇️ Baixar planilha modelo</button>
+    <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Colunas: <b>nome</b>, preco, plataforma, <b>link</b>, imagem1, imagem2, imagem3, imagem4. Só nome e link são obrigatórios. Produto sem imagem não aparece na aba Viral.</p>
+    <label>Escolha o arquivo da planilha</label>
+    <input type="file" id="inputPlanilha" accept=".xlsx,.xls,.csv">
+    <div id="statusImportacao" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
+    <button class="btn-principal" id="btnImportar" onclick="importarPlanilha()">Importar produtos</button>
+    <div id="resultadoImportacao" style="margin-top:12px;"></div>
   </div>
 </div>
 
@@ -2074,6 +2095,218 @@ async function salvarEdicaoProduto(){
 
   fecharModalEditarProduto();
   aviso('Produto atualizado! ✅');
+}
+
+/* ---------------- IMPORTAR PLANILHA DE PRODUTOS (só Pro/admin) ---------------- */
+const LIMITE_LINHAS_PLANILHA = 300;
+
+function carregarSheetJS(){
+  return new Promise((resolve, reject) => {
+    if(window.XLSX) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Não foi possível carregar o leitor de planilhas. Confira sua internet e tente de novo.'));
+    document.head.appendChild(s);
+  });
+}
+
+async function podeImportarPlanilha(){
+  if(!usuarioAtual) return false;
+  if(usuarioAtual.email === ADMIN_EMAIL) return true;
+  const doc = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+  return doc.exists && doc.data().plano === 'pago';
+}
+
+async function abrirModalImportar(){
+  if(!usuarioAtual){ aviso('Faça login primeiro.'); return; }
+  if(!(await podeImportarPlanilha())){
+    aviso('Importar planilha de produtos é um recurso do Viralize Pro. ⭐', '⭐', 'Assinar Viralize Pro', abrirModalAssinatura);
+    return;
+  }
+  document.getElementById('inputPlanilha').value = '';
+  document.getElementById('statusImportacao').textContent = '';
+  document.getElementById('resultadoImportacao').innerHTML = '';
+  document.getElementById('modalImportar').style.display = 'flex';
+}
+function fecharModalImportar(){ document.getElementById('modalImportar').style.display = 'none'; }
+
+async function baixarModeloPlanilha(){
+  try{
+    await carregarSheetJS();
+  }catch(err){ aviso(err.message); return; }
+  const dados = [
+    ['nome','preco','plataforma','link','imagem1','imagem2','imagem3','imagem4'],
+    ['Fone Bluetooth X10','79,90','Shopee','https://shopee.com.br/seu-link-de-afiliado','https://exemplo.com/foto1.jpg','https://exemplo.com/foto2.jpg','','']
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(dados);
+  ws['!cols'] = [{wch:32},{wch:10},{wch:16},{wch:48},{wch:36},{wch:36},{wch:36},{wch:36}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+  XLSX.writeFile(wb, 'modelo-produtos-viralize.xlsx');
+}
+
+function normalizarChavePlanilha(t){
+  return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+}
+function formatarPrecoPlanilha(n){
+  return Number.isInteger(n) ? String(n) : n.toFixed(2).replace('.', ',');
+}
+function limparPrecoTexto(t){
+  let p = String(t).replace(/R\$/gi, '').replace(/\s/g, '');
+  if(/^\d+\.\d{1,2}$/.test(p)) p = p.replace('.', ','); // 79.9 -> 79,9
+  return p;
+}
+function inferirPlataforma(texto, link){
+  const t = normalizarChavePlanilha(texto || '');
+  const l = (link || '').toLowerCase();
+  if(t.includes('shopee') || l.includes('shopee.') || l.includes('shope.ee')) return 'Shopee';
+  if(t.includes('amazon') || l.includes('amazon.') || l.includes('amzn.')) return 'Amazon';
+  if(t.includes('mercadolivre') || l.includes('mercadolivre.') || l.includes('meli.la')) return 'Mercado Livre';
+  if(t.includes('shein') || l.includes('shein.')) return 'Shein';
+  if(t.includes('dridalia') || l.includes('dridalia.')) return 'Dridália Modas';
+  return 'Outro';
+}
+function mapearLinhaPlanilha(linha){
+  const r = { nome:'', preco:'', plataformaTexto:'', link:'' };
+  const imgs = {};
+  Object.keys(linha).forEach(chaveOriginal => {
+    const valorBruto = linha[chaveOriginal];
+    if(valorBruto === null || valorBruto === undefined || valorBruto === '') return;
+    const k = normalizarChavePlanilha(chaveOriginal);
+    const texto = String(valorBruto).trim();
+    if(!texto) return;
+    if(k.startsWith('nome') || k === 'produto' || k === 'titulo') r.nome = texto;
+    else if(k.startsWith('preco') || k === 'valor') r.preco = (typeof valorBruto === 'number') ? formatarPrecoPlanilha(valorBruto) : limparPrecoTexto(texto);
+    else if(k.startsWith('plataforma') || k === 'marketplace' || k === 'loja') r.plataformaTexto = texto;
+    else if(k.startsWith('link') || k === 'url') r.link = texto;
+    else {
+      const m = k.match(/^(imagem|img|foto)(\d)?/);
+      if(m){
+        const idx = m[2] ? parseInt(m[2], 10) : 1;
+        if(idx >= 1 && idx <= 4) imgs[idx] = texto;
+      }
+    }
+  });
+  r.imagens = [1,2,3,4].map(i => imgs[i]).filter(u => u && /^https?:\/\//i.test(u));
+  return r;
+}
+function chaveProduto(nome, link){
+  return String(nome).trim().toLowerCase() + '|' + String(link).trim();
+}
+
+async function importarPlanilha(){
+  const statusEl = document.getElementById('statusImportacao');
+  const resultadoEl = document.getElementById('resultadoImportacao');
+  const btn = document.getElementById('btnImportar');
+  const arquivo = document.getElementById('inputPlanilha').files[0];
+  resultadoEl.innerHTML = '';
+
+  if(!arquivo){ aviso('Escolha o arquivo da planilha primeiro.'); return; }
+  if(!(await podeImportarPlanilha())){ aviso('Importar planilha é um recurso do Viralize Pro. ⭐'); return; }
+
+  btn.disabled = true;
+  try{
+    statusEl.textContent = 'Lendo a planilha...';
+    await carregarSheetJS();
+
+    let workbook;
+    if(/\.csv$/i.test(arquivo.name)){
+      const texto = await arquivo.text();
+      workbook = XLSX.read(texto, { type: 'string', raw: true });
+    } else {
+      const buffer = await arquivo.arrayBuffer();
+      workbook = XLSX.read(buffer, { type: 'array' });
+    }
+    const planilha = workbook.Sheets[workbook.SheetNames[0]];
+    const linhas = XLSX.utils.sheet_to_json(planilha, { defval: '' });
+
+    if(!linhas.length){ statusEl.textContent = ''; aviso('Essa planilha está vazia ou sem linhas de produto.'); return; }
+    if(linhas.length > LIMITE_LINHAS_PLANILHA){
+      statusEl.textContent = '';
+      aviso(`Essa planilha tem ${linhas.length} linhas. O máximo por envio é ${LIMITE_LINHAS_PLANILHA}. Divida em partes menores.`);
+      return;
+    }
+
+    statusEl.textContent = 'Conferindo seu catálogo atual...';
+    const colRef = db.collection('usuarios').doc(usuarioAtual.uid).collection('catalogo');
+    const existentesSnap = await colRef.get();
+    const existentes = new Map();
+    existentesSnap.forEach(d => { const x = d.data(); existentes.set(chaveProduto(x.nome || '', x.link || ''), d.ref); });
+
+    const operacoes = [];
+    const vistosNaPlanilha = new Set();
+    const problemas = [];
+    let novos = 0, atualizados = 0, semImagem = 0;
+    const agora = Date.now();
+
+    linhas.forEach((linha, i) => {
+      const numeroLinha = i + 2; // +2 porque a linha 1 é o cabeçalho
+      const p = mapearLinhaPlanilha(linha);
+      if(!p.nome || !p.link){ problemas.push(`Linha ${numeroLinha}: falta nome ou link`); return; }
+      if(!/^https?:\/\//i.test(p.link)){ problemas.push(`Linha ${numeroLinha}: o link precisa começar com http`); return; }
+
+      const chave = chaveProduto(p.nome, p.link);
+      if(vistosNaPlanilha.has(chave)){ problemas.push(`Linha ${numeroLinha}: produto repetido na planilha`); return; }
+      vistosNaPlanilha.add(chave);
+
+      if(!p.imagens.length) semImagem++;
+      const dados = {
+        nome: p.nome,
+        preco: p.preco,
+        img: p.imagens[0] || '',
+        imagens: p.imagens,
+        link: p.link,
+        plataforma: inferirPlataforma(p.plataformaTexto, p.link)
+      };
+
+      const refExistente = existentes.get(chave);
+      if(refExistente){
+        operacoes.push({ tipo: 'update', ref: refExistente, dados });
+        atualizados++;
+      } else {
+        operacoes.push({
+          tipo: 'set',
+          ref: colRef.doc(),
+          // a primeira linha da planilha fica no topo do catálogo
+          dados: { ...dados, ativo: true, criadoEm: firebase.firestore.Timestamp.fromMillis(agora - i) }
+        });
+        novos++;
+      }
+    });
+
+    if(!operacoes.length){
+      statusEl.textContent = '';
+      resultadoEl.innerHTML = `<div class="card" style="background:#2a1616;border-color:#4a2020;color:#ff8080;font-size:13px;">Nenhum produto válido encontrado.<br>${problemas.slice(0,5).map(escapeHtml).join('<br>')}</div>`;
+      return;
+    }
+
+    statusEl.textContent = `Salvando ${operacoes.length} produtos...`;
+    for(let i = 0; i < operacoes.length; i += 400){
+      const lote = db.batch();
+      operacoes.slice(i, i + 400).forEach(op => {
+        if(op.tipo === 'set') lote.set(op.ref, op.dados);
+        else lote.update(op.ref, op.dados);
+      });
+      await lote.commit();
+    }
+
+    statusEl.textContent = '';
+    document.getElementById('inputPlanilha').value = '';
+    resultadoEl.innerHTML = `
+      <div class="card" style="background:#132a1c;border-color:#1e5c37;font-size:13px;">
+        <div style="font-weight:700;color:#7ee08a;margin-bottom:4px;">✅ Importação concluída</div>
+        <div>${novos} produtos novos · ${atualizados} atualizados${problemas.length ? ` · ${problemas.length} ignorados` : ''}</div>
+        ${semImagem ? `<div style="color:var(--accent2);margin-top:6px;font-size:12px;">⚠️ ${semImagem} produto(s) sem imagem válida — não vão aparecer na aba Viral.</div>` : ''}
+        ${problemas.length ? `<div style="color:var(--muted);margin-top:6px;font-size:12px;">${problemas.slice(0,5).map(escapeHtml).join('<br>')}${problemas.length > 5 ? `<br>...e mais ${problemas.length - 5}` : ''}</div>` : ''}
+      </div>`;
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = '';
+    aviso('Não consegui importar a planilha: ' + (err.message || err));
+  }finally{
+    btn.disabled = false;
+  }
 }
 
 /* ---------------- PAINEL ADMIN ---------------- */
