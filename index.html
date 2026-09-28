@@ -44,7 +44,7 @@
   .acoes button.ativo{color:var(--accent);}
   .fab{position:fixed;bottom:calc(74px + env(safe-area-inset-bottom, 0px));right:20px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;font-size:26px;color:#fff;box-shadow:0 6px 20px rgba(255,92,53,.4);cursor:pointer;z-index:20;}
   #fabInstalar{position:fixed;bottom:calc(74px + env(safe-area-inset-bottom, 0px));left:20px;z-index:20;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:30px;padding:12px 16px;font-size:13px;font-weight:700;display:none;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.4);cursor:pointer;}
-  #fabChatGeral{position:fixed;bottom:calc(140px + env(safe-area-inset-bottom, 0px));right:20px;width:50px;height:50px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--accent2);font-size:22px;box-shadow:0 6px 16px rgba(0,0,0,.4);cursor:pointer;z-index:20;display:flex;align-items:center;justify-content:center;}
+  #fabChatGeral{position:fixed;bottom:calc(140px + env(safe-area-inset-bottom, 0px));right:20px;width:50px;height:50px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--accent2);font-size:22px;box-shadow:0 6px 16px rgba(0,0,0,.4);cursor:pointer;z-index:20;display:none;align-items:center;justify-content:center;}
   #fabChatGeral .badge-chat{position:absolute;top:-2px;right:-2px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:14px;}
   #fabInstalar.mostrar{display:flex;}
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;min-height:58px;padding-bottom:env(safe-area-inset-bottom, 0px);}
@@ -627,9 +627,9 @@ function entrarOuCriar(){
           email: email,
           criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
           pontos: 0,
-          status: email === ADMIN_EMAIL ? 'aprovado' : 'pendente',
+          status: 'aprovado', // liberação automática e instantânea
           convidadoPor: uidConvite || null
-        });
+        }).then(() => creditarIndicacao(cred.user));
       });
     })
     .catch(err => aviso('Erro: ' + err.message));
@@ -643,7 +643,15 @@ auth.onAuthStateChanged(async (user) => {
     const dados = doc.exists ? doc.data() : {};
     const nome = dados.nome || 'Afiliado';
     // Contas antigas sem o campo "status" são tratadas como já aprovadas
-    const status = dados.status || 'aprovado';
+    let status = dados.status || 'aprovado';
+
+    if(user.email !== ADMIN_EMAIL && status === 'pendente'){
+      try{
+        await db.collection('usuarios').doc(user.uid).update({ status: 'aprovado' });
+        status = 'aprovado';
+        creditarIndicacao(user);
+      }catch(err){ /* se falhar, cai na tela de espera como antes */ }
+    }
 
     if(user.email !== ADMIN_EMAIL && status !== 'aprovado'){
       mostrarTelaEspera(status);
@@ -662,12 +670,13 @@ auth.onAuthStateChanged(async (user) => {
 
     document.getElementById('telaEspera').style.display = 'none';
     document.getElementById('userBox').textContent = '👤 ' + nome;
+    await carregarConfigRecursos();
+    escutarConfigRecursos();
     carregarFeed();
     carregarRanking();
     carregarCatalogo();
     escutarNotificacoes();
     escutarBadgeChatGeral();
-    carregarConfigRecursos();
 
     if(user.email === ADMIN_EMAIL){
       document.getElementById('tabAdmin').classList.remove('oculto');
@@ -685,8 +694,21 @@ auth.onAuthStateChanged(async (user) => {
     document.getElementById('modalLogin').style.display = 'flex';
     document.getElementById('telaEspera').style.display = 'none';
     document.getElementById('tabAdmin').classList.add('oculto');
+    document.getElementById('fabChatGeral').style.display = 'none';
   }
 });
+
+// Dá os 30 pontos de indicação na hora (o servidor confere tudo e só credita uma vez por conta)
+async function creditarIndicacao(user){
+  try{
+    const idToken = await user.getIdToken();
+    await fetch('/api/registrar-indicacao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken })
+    });
+  }catch(err){ /* o bônus não pode travar o cadastro */ }
+}
 
 function mostrarTelaEspera(status){
   document.getElementById('telaEspera').style.display = 'flex';
@@ -2401,7 +2423,8 @@ function responderAprovacao(userId, novoStatus){
       carregarAdminStats();
       criarNotificacao(userId, novoStatus === 'aprovado' ? '✅ Seu cadastro foi aprovado! Bem-vindo ao Viralize.' : '🚫 Seu cadastro não foi aprovado.');
 
-      if(novoStatus === 'aprovado' && dados.convidadoPor){
+      if(novoStatus === 'aprovado' && dados.convidadoPor && !dados.indicacaoCreditada){
+        db.collection('usuarios').doc(userId).update({ indicacaoCreditada: true }).catch(()=>{});
         db.collection('usuarios').doc(dados.convidadoPor).update({
           pontos: firebase.firestore.FieldValue.increment(30),
           indicacoes: firebase.firestore.FieldValue.increment(1)
@@ -2715,6 +2738,16 @@ function aplicarVisibilidadeChatGeral(){
   const btn = document.getElementById('fabChatGeral');
   if(!btn) return;
   btn.style.display = configRecursos.chatAtivo ? 'flex' : 'none';
+}
+
+let unsubscribeConfigRecursos = null;
+function escutarConfigRecursos(){
+  if(unsubscribeConfigRecursos) unsubscribeConfigRecursos();
+  unsubscribeConfigRecursos = db.collection('config').doc('recursos').onSnapshot(doc => {
+    const c = doc.exists ? doc.data() : {};
+    configRecursos = { chatAtivo: c.chatAtivo !== false, produtoCampeaoDono: c.produtoCampeaoDono || null, produtoCampeaoId: c.produtoCampeaoId || null };
+    aplicarVisibilidadeChatGeral();
+  }, () => {});
 }
 
 async function carregarConfigRecursos(){
