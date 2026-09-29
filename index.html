@@ -46,6 +46,7 @@
   #fabInstalar{position:fixed;bottom:calc(74px + env(safe-area-inset-bottom, 0px));left:20px;z-index:20;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:30px;padding:12px 16px;font-size:13px;font-weight:700;display:none;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.4);cursor:pointer;}
   #fabChatGeral{position:fixed;bottom:calc(140px + env(safe-area-inset-bottom, 0px));right:20px;width:50px;height:50px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--accent2);font-size:22px;box-shadow:0 6px 16px rgba(0,0,0,.4);cursor:pointer;z-index:20;display:none;align-items:center;justify-content:center;}
   #fabChatGeral .badge-chat{position:absolute;top:-2px;right:-2px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:14px;}
+  #fabCTA{position:fixed;bottom:calc(140px + env(safe-area-inset-bottom, 0px));left:20px;z-index:20;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;border-radius:30px;padding:12px 16px;font-size:13px;font-weight:700;display:none;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(255,92,53,.4);cursor:pointer;max-width:220px;text-align:left;}
   #fabInstalar.mostrar{display:flex;}
   nav.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:20;min-height:58px;padding-bottom:env(safe-area-inset-bottom, 0px);}
   nav.tabs button{flex:1;background:none;border:none;color:var(--muted);padding:10px 0;font-size:11px;cursor:pointer;}
@@ -192,6 +193,27 @@
         </div>
       </div>
       <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:14px;font-weight:700;">💳 Pagamentos / Assinaturas</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Se desativado, ninguém consegue abrir a tela de assinar o Pro.</div>
+          </div>
+          <button id="btnTogglePagamento" onclick="alternarPagamentoAdmin()" style="border:none;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;white-space:nowrap;">...</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:14px;font-weight:700;">📣 Botão flutuante (chamada pra ação)</div>
+          <button id="btnToggleCTA" onclick="alternarCTAAdmin()" style="border:none;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;white-space:nowrap;">...</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Aparece flutuando na tela pra todo mundo, ao lado do botão de instalar.</div>
+        <label>Texto do botão</label>
+        <input type="text" id="inputCTATexto" maxlength="40" placeholder="Ex: Promoção especial!">
+        <label>Link (pra onde vai ao tocar)</label>
+        <input type="text" id="inputCTALink" placeholder="https://...">
+        <button class="btn-principal" onclick="salvarCTAAdmin()">💾 Salvar chamada pra ação</button>
+      </div>
+      <div class="card">
         <div style="font-size:14px;font-weight:700;margin-bottom:8px;">👑 Produto Campeão</div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Esse produto ganha um brilho laranja de destaque no Feed e na aba Viral.</div>
         <div id="produtoCampeaoAtual" style="margin-bottom:12px;"></div>
@@ -207,6 +229,7 @@
 <button id="fabChatGeral" onclick="abrirChatGeral()">
   💬<span id="badgeChatGeral" class="badge-chat oculto"></span>
 </button>
+<button id="fabCTA" onclick="clicouBotaoCTA()">📣 <span id="textoFabCTA"></span></button>
 
 <nav class="tabs">
   <button id="tabFeed" class="ativo" onclick="mudarAba('feed')">📱<br>Feed</button>
@@ -536,7 +559,7 @@ let usuarioAtual = null;
 let tipoSelecionado = "texto";
 const ADMIN_EMAIL = "jeanaguiar636@gmail.com";
 const uidConvite = new URLSearchParams(window.location.search).get('convite');
-let configRecursos = { chatAtivo: true, produtoCampeaoDono: null, produtoCampeaoId: null };
+let configRecursos = { chatAtivo: true, pagamentoAtivo: true, ctaAtivo: false, ctaTexto: '', ctaLink: '', produtoCampeaoDono: null, produtoCampeaoId: null };
 carregarCoresSalvas();
 
 /* ---------------- INSTALAR APP (PWA) ---------------- */
@@ -695,6 +718,7 @@ auth.onAuthStateChanged(async (user) => {
     document.getElementById('telaEspera').style.display = 'none';
     document.getElementById('tabAdmin').classList.add('oculto');
     document.getElementById('fabChatGeral').style.display = 'none';
+    document.getElementById('fabCTA').style.display = 'none';
   }
 });
 
@@ -2657,9 +2681,13 @@ function carregarConversasAdmin(){
 async function carregarAjustesAdmin(){
   const doc = await db.collection('config').doc('recursos').get();
   const c = doc.exists ? doc.data() : {};
-  configRecursos = { chatAtivo: c.chatAtivo !== false, produtoCampeaoDono: c.produtoCampeaoDono || null, produtoCampeaoId: c.produtoCampeaoId || null };
+  configRecursos = { chatAtivo: c.chatAtivo !== false, pagamentoAtivo: c.pagamentoAtivo !== false, ctaAtivo: c.ctaAtivo === true, ctaTexto: c.ctaTexto || '', ctaLink: c.ctaLink || '', produtoCampeaoDono: c.produtoCampeaoDono || null, produtoCampeaoId: c.produtoCampeaoId || null };
 
   atualizarBotaoToggleChat();
+  atualizarBotaoTogglePagamento();
+  atualizarBotaoToggleCTA();
+  document.getElementById('inputCTATexto').value = configRecursos.ctaTexto;
+  document.getElementById('inputCTALink').value = configRecursos.ctaLink;
 
   const painelCampeao = document.getElementById('produtoCampeaoAtual');
   if(configRecursos.produtoCampeaoId){
@@ -2716,6 +2744,55 @@ async function alternarChatGeralAdmin(){
   aplicarVisibilidadeChatGeral();
 }
 
+function atualizarBotaoTogglePagamento(){
+  const btn = document.getElementById('btnTogglePagamento');
+  btn.textContent = configRecursos.pagamentoAtivo ? '✅ Ativado' : '⛔ Desativado';
+  btn.style.background = configRecursos.pagamentoAtivo ? '#1e3a24' : '#3a1e1e';
+  btn.style.color = configRecursos.pagamentoAtivo ? '#7ee08a' : '#ff8080';
+}
+async function alternarPagamentoAdmin(){
+  configRecursos.pagamentoAtivo = !configRecursos.pagamentoAtivo;
+  await db.collection('config').doc('recursos').set({ pagamentoAtivo: configRecursos.pagamentoAtivo }, { merge: true });
+  atualizarBotaoTogglePagamento();
+}
+
+function atualizarBotaoToggleCTA(){
+  const btn = document.getElementById('btnToggleCTA');
+  btn.textContent = configRecursos.ctaAtivo ? '✅ Ativado' : '⛔ Desativado';
+  btn.style.background = configRecursos.ctaAtivo ? '#1e3a24' : '#3a1e1e';
+  btn.style.color = configRecursos.ctaAtivo ? '#7ee08a' : '#ff8080';
+}
+async function alternarCTAAdmin(){
+  configRecursos.ctaAtivo = !configRecursos.ctaAtivo;
+  await db.collection('config').doc('recursos').set({ ctaAtivo: configRecursos.ctaAtivo }, { merge: true });
+  atualizarBotaoToggleCTA();
+  aplicarVisibilidadeCTA();
+}
+async function salvarCTAAdmin(){
+  const texto = document.getElementById('inputCTATexto').value.trim();
+  const link = document.getElementById('inputCTALink').value.trim();
+  if(!texto || !link){ aviso('Preencha o texto e o link do botão.'); return; }
+  if(!/^https?:\/\//i.test(link)){ aviso('O link precisa começar com http:// ou https://'); return; }
+  configRecursos.ctaTexto = texto;
+  configRecursos.ctaLink = link;
+  await db.collection('config').doc('recursos').set({ ctaTexto: texto, ctaLink: link }, { merge: true });
+  aplicarVisibilidadeCTA();
+  aviso('Chamada pra ação salva! 📣');
+}
+function aplicarVisibilidadeCTA(){
+  const btn = document.getElementById('fabCTA');
+  if(!btn) return;
+  if(configRecursos.ctaAtivo && configRecursos.ctaTexto && configRecursos.ctaLink){
+    document.getElementById('textoFabCTA').textContent = configRecursos.ctaTexto;
+    btn.style.display = 'flex';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+function clicouBotaoCTA(){
+  if(configRecursos.ctaLink) window.open(configRecursos.ctaLink, '_blank');
+}
+
 async function definirProdutoCampeao(donoId, itemId){
   configRecursos.produtoCampeaoDono = donoId;
   configRecursos.produtoCampeaoId = itemId;
@@ -2745,8 +2822,9 @@ function escutarConfigRecursos(){
   if(unsubscribeConfigRecursos) unsubscribeConfigRecursos();
   unsubscribeConfigRecursos = db.collection('config').doc('recursos').onSnapshot(doc => {
     const c = doc.exists ? doc.data() : {};
-    configRecursos = { chatAtivo: c.chatAtivo !== false, produtoCampeaoDono: c.produtoCampeaoDono || null, produtoCampeaoId: c.produtoCampeaoId || null };
+    configRecursos = { chatAtivo: c.chatAtivo !== false, pagamentoAtivo: c.pagamentoAtivo !== false, ctaAtivo: c.ctaAtivo === true, ctaTexto: c.ctaTexto || '', ctaLink: c.ctaLink || '', produtoCampeaoDono: c.produtoCampeaoDono || null, produtoCampeaoId: c.produtoCampeaoId || null };
     aplicarVisibilidadeChatGeral();
+    aplicarVisibilidadeCTA();
   }, () => {});
 }
 
@@ -2754,11 +2832,12 @@ async function carregarConfigRecursos(){
   try{
     const doc = await db.collection('config').doc('recursos').get();
     const c = doc.exists ? doc.data() : {};
-    configRecursos = { chatAtivo: c.chatAtivo !== false, produtoCampeaoDono: c.produtoCampeaoDono || null, produtoCampeaoId: c.produtoCampeaoId || null };
+    configRecursos = { chatAtivo: c.chatAtivo !== false, pagamentoAtivo: c.pagamentoAtivo !== false, ctaAtivo: c.ctaAtivo === true, ctaTexto: c.ctaTexto || '', ctaLink: c.ctaLink || '', produtoCampeaoDono: c.produtoCampeaoDono || null, produtoCampeaoId: c.produtoCampeaoId || null };
   }catch(err){
-    configRecursos = { chatAtivo: true, produtoCampeaoDono: null, produtoCampeaoId: null };
+    configRecursos = { chatAtivo: true, pagamentoAtivo: true, ctaAtivo: false, ctaTexto: '', ctaLink: '', produtoCampeaoDono: null, produtoCampeaoId: null };
   }
   aplicarVisibilidadeChatGeral();
+  aplicarVisibilidadeCTA();
 }
 
 function ehProdutoCampeao(donoId, itemId){
@@ -2913,6 +2992,10 @@ function excluirImagemGaleria(id){
 
 /* ---------------- ASSINATURA VIRALIZE PRO (lado do afiliado) ---------------- */
 async function abrirModalAssinatura(){
+  if(!configRecursos.pagamentoAtivo){
+    aviso('As assinaturas estão temporariamente indisponíveis. Tente novamente mais tarde.');
+    return;
+  }
   fecharModalPerfil();
   const doc = await db.collection('config').doc('pagamento').get();
   const c = doc.exists ? doc.data() : { chavePix:'(não configurada)', precoAssinatura:'15' };
