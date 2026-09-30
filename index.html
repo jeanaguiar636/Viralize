@@ -403,7 +403,7 @@
     <button onclick="baixarModeloPlanilha()" style="width:100%;background:#1e2a3a;color:#7ec6ff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:13px;">⬇️ Baixar planilha modelo</button>
     <p style="font-size:11px;color:var(--muted);margin:8px 0 0;">Colunas: <b>nome</b>, preco, plataforma, <b>link</b>, imagem1, imagem2, imagem3, imagem4. Só nome e link são obrigatórios. Produto sem imagem não aparece na aba Viral.</p>
     <label>Escolha o arquivo da planilha</label>
-    <input type="file" id="inputPlanilha" accept=".xlsx,.xls,.csv">
+    <input type="file" id="inputPlanilha" accept=".xlsx,.xls,.csv,text/csv,text/comma-separated-values,application/csv,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*">
     <div id="statusImportacao" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
     <button class="btn-principal" id="btnImportar" onclick="importarPlanilha()">Importar produtos</button>
     <div id="resultadoImportacao" style="margin-top:12px;"></div>
