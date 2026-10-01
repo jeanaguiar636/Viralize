@@ -516,10 +516,13 @@
     <input type="email" id="loginEmail" placeholder="seu@email.com">
     <label>Senha</label>
     <input type="password" id="loginSenha" placeholder="mínimo 6 caracteres">
-    <button class="btn-principal" onclick="entrarOuCriar()">Entrar / Criar conta</button>
-    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;">
-      Ao continuar, sua conta é criada automaticamente se ainda não existir.
-    </p>
+    <button class="btn-principal" onclick="fazerLogin()">Entrar</button>
+    <div style="display:flex;align-items:center;gap:10px;margin:14px 0;">
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <span style="font-size:11px;color:var(--muted);">ou, se é sua primeira vez</span>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+    </div>
+    <button onclick="criarConta()" style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--accent2);background:none;color:var(--accent2);font-weight:700;font-size:15px;cursor:pointer;">Criar conta</button>
   </div>
 </div>
 
@@ -641,26 +644,49 @@ function fecharAviso(){
 }
 
 /* ---------------- LOGIN ---------------- */
-function entrarOuCriar(){
-  const nome = document.getElementById('loginNome').value.trim();
+function fazerLogin(){
   const email = document.getElementById('loginEmail').value.trim();
   const senha = document.getElementById('loginSenha').value;
   if(!email || senha.length < 6){ aviso('Preencha e-mail e senha (mín. 6 caracteres).'); return; }
 
   auth.signInWithEmailAndPassword(email, senha)
-    .catch(() => {
-      return auth.createUserWithEmailAndPassword(email, senha).then(cred => {
-        return db.collection('usuarios').doc(cred.user.uid).set({
-          nome: nome || 'Afiliado',
-          email: email,
-          criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-          pontos: 0,
-          status: 'aprovado', // liberação automática e instantânea
-          convidadoPor: uidConvite || null
-        }).then(() => creditarIndicacao(cred.user));
-      });
+    .catch(err => {
+      if(err.code === 'auth/user-not-found'){
+        aviso('Não existe conta com esse e-mail. Toque em "Criar conta" aqui embaixo.');
+      } else if(err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential'){
+        aviso('Senha incorreta. Confira e tente de novo.');
+      } else {
+        aviso('Erro ao entrar: ' + err.message);
+      }
+    });
+}
+
+function criarConta(){
+  const nome = document.getElementById('loginNome').value.trim();
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  if(!email || senha.length < 6){ aviso('Preencha e-mail e senha (mín. 6 caracteres).'); return; }
+
+  auth.createUserWithEmailAndPassword(email, senha)
+    .then(cred => {
+      return db.collection('usuarios').doc(cred.user.uid).set({
+        nome: nome || 'Afiliado',
+        email: email,
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+        pontos: 0,
+        status: 'aprovado', // liberação automática e instantânea
+        convidadoPor: uidConvite || null
+      }).then(() => creditarIndicacao(cred.user));
     })
-    .catch(err => aviso('Erro: ' + err.message));
+    .catch(err => {
+      if(err.code === 'auth/email-already-in-use'){
+        aviso('Esse e-mail já tem conta no Viralize. Toque em "Entrar" em vez de "Criar conta".');
+      } else if(err.code === 'auth/weak-password'){
+        aviso('Senha muito fraca. Use pelo menos 6 caracteres.');
+      } else {
+        aviso('Erro ao criar conta: ' + err.message);
+      }
+    });
 }
 
 auth.onAuthStateChanged(async (user) => {
